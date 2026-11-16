@@ -38,6 +38,18 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends google-cloud-cli kubectl; \
     rm -rf /var/lib/apt/lists/*
 
+# Install the official Tailscale client. Login remains explicit: never import
+# synced credentials, start a tailnet connection, or enable Tailscale SSH.
+RUN set -eux; \
+    curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg \
+      -o /usr/share/keyrings/tailscale-archive-keyring.gpg; \
+    curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list \
+      -o /etc/apt/sources.list.d/tailscale.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends tailscale; \
+    rm -rf /var/lib/apt/lists/*; \
+    tailscale version
+
 # Wrangler is globally available for convenience. In each project, prefer
 # the pinned local version: pnpm add -D wrangler && pnpm exec wrangler ...
 RUN set -eux; \
