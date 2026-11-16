@@ -92,6 +92,7 @@ jobs:
       - name: 🌐 Publish binaries to rodkisten.github.io
         env:
           PAGES_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
           set -euo pipefail
           git clone --depth 1 --branch master \
@@ -116,8 +117,19 @@ jobs:
           </html>
           HTML
           cd site
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -z "$APP_SLUG" ]; then
+            echo "::error::GitHub App slug was not returned by create-github-app-token"
+            exit 1
+          fi
+          BOT_LOGIN="${APP_SLUG}[bot]"
+          BOT_ID="$(GH_TOKEN="$PAGES_TOKEN" gh api "/users/$BOT_LOGIN" --jq .id)"
+          if [ -z "$BOT_ID" ]; then
+            echo "::error::Could not resolve GitHub App bot ID for $BOT_LOGIN"
+            exit 1
+          fi
+          git config user.name "$BOT_LOGIN"
+          git config user.email "${BOT_ID}+${BOT_LOGIN}@users.noreply.github.com"
+          echo "Publishing as GitHub App: $BOT_LOGIN (bot ID: $BOT_ID)"
           git add rodlog/releases
           if git diff --cached --quiet; then
             echo "No release files changed"
