@@ -1,0 +1,82 @@
+name: 🌈 rodlog · Test & Release
+
+on:
+  push:
+    paths:
+      - "packages/rodlog/**"
+      - ".github/workflows/rodlog.yml"
+  pull_request:
+    paths:
+      - "packages/rodlog/**"
+      - ".github/workflows/rodlog.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/rodlog
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/rodlog/go.mod
+          cache: false
+      - name: 🧹 Verify committed Go formatting
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            printf 'Unformatted Go files:\n%s\n' "$files"
+            exit 1
+          fi
+      - name: 📦 Verify Go dependencies
+        run: |
+          go mod tidy
+          go mod verify
+      - name: 🧪 Go tests
+        run: go test -race -v ./...
+      - name: 🎬 Structured output examples
+        run: go test -v -run 'TestJSONTable|TestJSONCommandAllowlist|TestSyntaxLanguage' ./...
+      - name: 🎬 Output examples
+        run: go test -v -run TestOutputExamples ./...
+      - name: 🔨 Build
+        run: go build ./cmd/rodlog
+
+  artifacts:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: 📦 Publish main build artifacts
+    needs: test
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/rodlog/go.mod
+          cache: false
+      - name: 📦 Resolve Go modules
+        run: cd packages/rodlog && go mod tidy
+      - name: 📦 Cross-compile
+        run: |
+          mkdir -p dist
+          cd packages/rodlog
+          for os in linux darwin; do
+            for arch in amd64 arm64; do
+              GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "../../dist/rodlog_${os}_${arch}" ./cmd/rodlog
+            done
+          done
+          cd ../../dist
+          sha256sum rodlog_* > checksums.txt
+      - name: 📎 Upload installable binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rodlog-main-binaries
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
