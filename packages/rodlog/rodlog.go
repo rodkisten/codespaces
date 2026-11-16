@@ -41,7 +41,7 @@ const (
 
 type Event struct {
 	Diagnostic *Diagnostic
-	Sequence uint64
+	Sequence   uint64
 	Tool     Tool
 	Level    Level
 	Text     string
