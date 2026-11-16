@@ -12,7 +12,12 @@ log() { printf '[%s] %-5s %s\n' "$(date -u +%FT%TZ)" "$1" "$2"; }
 fail() { log FAIL "$1" >&2; exit 1; }
 [[ "$remote" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]] || fail "Invalid repository"
 command -v git >/dev/null || fail "git not installed"
-[[ -n "${SSH_SYNC_TOKEN:-}" ]] || { log SKIP "SSH_SYNC_TOKEN not configured; remote sync disabled"; exit 0; }
+# Interactive SSH sessions read the short-lived installation token from a 0600 file.
+if [[ -z "${SSH_SYNC_TOKEN:-}" && -f "$HOME/.local/state/rod-ssh-sync/token" ]]; then
+  SSH_SYNC_TOKEN="$(< "$HOME/.local/state/rod-ssh-sync/token")"
+  export SSH_SYNC_TOKEN
+fi
+[[ -n "${SSH_SYNC_TOKEN:-}" ]] || { log SKIP "GitHub App token unavailable; remote sync disabled"; exit 0; }
 # Credentials only in environment, never in remote URL, command arguments or logs.
 askpass="$(mktemp)"
 trap 'rm -f "$askpass"' EXIT
@@ -47,8 +52,8 @@ restore() {
   log RUN "git fetch origin $branch"
   git -C "$dir" fetch -q origin "$branch" || fail "Fetch failed"
   if [[ -f "$source_file" && -s "$source_file" ]]; then
-    log SKIP "Existing local configuration preserved; use rod-sync restore to replace it manually"
-    return
+    cp -p "$source_file" "$source_file.backup.$(date -u +%Y%m%d%H%M%S)"
+    log OK "Backed up existing local configuration before remote restore"
   fi
   git -C "$dir" reset -q --hard "origin/$branch"
   if [[ -f "$dir/$target" ]]; then
@@ -65,7 +70,7 @@ sync_now() {
   # Do not sync symlinks, large files, or obvious credentials.
   [[ ! -L "$source_file" ]] || fail "Refusing symlink"
   [[ "$(wc -c < "$source_file")" -le 65536 ]] || fail "File exceeds 64 KiB limit"
-  if grep -Eiq '(-----BEGIN .*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(TOKEN|PASSWORD|SECRET|API_KEY)[[:space:]]*=)' "$source_file"; then
+  if grep -Eiq -- '(-----BEGIN .*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(TOKEN|PASSWORD|SECRET|API_KEY)[[:space:]]*=)' "$source_file"; then
     fail "Potential credential found; not syncing"
   fi
   mkdir -p "$dir/dotfiles"
