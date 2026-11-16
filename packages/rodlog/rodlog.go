@@ -40,6 +40,7 @@ const (
 )
 
 type Event struct {
+	Diagnostic *Diagnostic
 	Sequence uint64
 	Tool     Tool
 	Level    Level
@@ -131,6 +132,10 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 				current = detected
 			}
 			event := Event{Sequence: seq, Tool: current, Level: Classify(text), Text: text}
+			event.Diagnostic = ParseDiagnostic(current, text)
+			if event.Diagnostic != nil {
+				event.Level = event.Diagnostic.Level
+			}
 			var out []byte
 			var renderErr error
 			if e.Renderer != nil {

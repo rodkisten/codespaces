@@ -144,3 +144,9 @@ The installer retrieves the newest successful push workflow run on `main`, downl
 ## 🌐 Public release downloads
 
 The installer now downloads platform binaries directly from [rodlog releases](https://rodkisten.github.io/rodlog/releases/) without GitHub CLI authentication. The publishing workflow must first successfully push the binaries to the site repository. Override the mirror with `RODLOG_RELEASE_BASE` if needed. Checksums are verified before installation.
+
+## 🧠 Semantic diagnostic adapters
+
+The stream now carries an optional `Event.Diagnostic` with tool, severity, code, file, line, column and message, without changing the original `Event.Text`. Initial adapters recognize TypeScript (both common location formats), npm warnings/errors/notices, gcloud errors/warnings and Docker build failures or Dockerfile locations. Unknown lines fall back to the existing renderer. Consumers can implement `Renderer.Render(Event)` to produce structured integrations; no subprocess or shell code is evaluated by these parsers.
+
+**Next:** multiline diagnostics, richer Wrangler/npm adapters, JSONL output, GitHub annotations, and AST-backed source analysis with a version-pinned shell parser. Syntax coloring via Chroma is separate from semantic extraction.
