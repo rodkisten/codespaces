@@ -1,0 +1,102 @@
+name: "🔐 Terminal · SSH via Tailscale"
+run-name: "SSH · ${{ github.ref_name }} · ${{ github.run_number }}"
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Session duration in minutes (5–300)"
+        type: number
+        required: true
+        default: 120
+permissions:
+  contents: read
+concurrency:
+  group: rod-terminal-persistent
+  cancel-in-progress: false
+jobs:
+  ssh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 315
+    env:
+      TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+      SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
+      SESSION_MINUTES: ${{ inputs.minutes }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate configuration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$TAILSCALE_AUTHKEY" ]] || { echo "::error::Set Actions secret TAILSCALE_AUTHKEY"; exit 1; }
+          [[ -n "$SSH_PUBLIC_KEY" ]] || { echo "::error::Set repository variable SSH_PUBLIC_KEY"; exit 1; }
+          [[ "$SSH_PUBLIC_KEY" =~ ^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa)[[:space:]]+[A-Za-z0-9+/=]+([[:space:]].*)?$ ]] || { echo "::error::SSH_PUBLIC_KEY must be a single OpenSSH public key"; exit 1; }
+          [[ "$SESSION_MINUTES" =~ ^[0-9]+$ ]] && (( SESSION_MINUTES >= 5 && SESSION_MINUTES <= 300 )) || { echo "::error::minutes must be 5..300"; exit 1; }
+      - name: Restore persistent workspace
+        uses: actions/cache/restore@v4
+        with:
+          path: .rod-workspace
+          key: terminal-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            terminal-state-
+      - name: Prepare workspace and SSH daemon
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openssh-server tailscale
+          mkdir -p .rod-workspace "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh" .rod-workspace
+          printf '%s\n' "$SSH_PUBLIC_KEY" > "$HOME/.ssh/authorized_keys"
+          chmod 600 "$HOME/.ssh/authorized_keys"
+          sudo mkdir -p /run/sshd
+          sudo tee /tmp/rod-sshd.conf >/dev/null <<EOF
+          Port 2222
+          ListenAddress 127.0.0.1
+          HostKey /etc/ssh/ssh_host_ed25519_key
+          PubkeyAuthentication yes
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PermitRootLogin no
+          AllowUsers runner
+          AuthorizedKeysFile .ssh/authorized_keys
+          PidFile /tmp/rod-sshd.pid
+          Subsystem sftp internal-sftp
+          EOF
+          sudo sshd -t -f /tmp/rod-sshd.conf
+          sudo /usr/sbin/sshd -f /tmp/rod-sshd.conf
+          echo "SSH daemon listening on loopback only, port 2222"
+      - name: Connect to tailnet and publish private SSH port
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash scripts/tailscale.sh auto
+          # Userspace Tailscale has no kernel interface; Tailscale Serve forwards
+          # inbound tailnet TCP traffic to the loopback-only SSH daemon.
+          tailscale --socket="$HOME/.local/state/rod-codespaces/tailscale/tailscaled.sock" serve --bg --tcp=22 tcp://127.0.0.1:2222
+          echo "### SSH session ready" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Connect from a device on the same tailnet:' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ssh runner@<tailscale-ip>' >> "$GITHUB_STEP_SUMMARY"
+          echo 'sftp runner@<tailscale-ip>' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Tailnet IP:' >> "$GITHUB_STEP_SUMMARY"
+          bash scripts/tailscale.sh ip | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "::notice::SSH is available only while this workflow runs. Check the job summary for its tailnet IP."
+      - name: Keep SSH available
+        shell: bash
+        run: |
+          echo "Session open for $SESSION_MINUTES minutes. Cancel the job to disconnect early."
+          sleep "$((SESSION_MINUTES * 60))"
+      - name: Save persistent workspace
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .rod-workspace
+          key: terminal-state-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload workspace snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssh-workspace-${{ github.run_id }}
+          path: .rod-workspace/
+          if-no-files-found: ignore
+          retention-days: 3
