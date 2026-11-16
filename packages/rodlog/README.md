@@ -189,3 +189,7 @@ Aliases and shell functions are intentionally **not** overridden. To run an alia
 ## Extended diagnostic fixtures
 
 The five `testdata/*.log` files now contain longer **synthetic, realistic examples** modeled on common CLI output formats. They are not verbatim captured production logs and contain no credentials or personal data. Tests exercise preservation of uncolored output, ANSI transform rendering, and structured diagnostic recognition. In transform mode, diagnostic cards display severity, source location and message; unsupported lines retain the original conservative behavior.
+
+### Code frames and summary
+
+In colored transform mode, local relative source files (up to 1 MiB) can provide a five-line diagnostic frame with a column caret. Duplicate structured diagnostics are suppressed and a final error/warning count is printed. Raw, enhance, JSONL and GitHub annotation modes retain their prior behavior. No source is read for absolute or parent-traversal paths.

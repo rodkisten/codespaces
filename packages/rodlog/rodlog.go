@@ -114,6 +114,8 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 	reader := bufio.NewReaderSize(src, 32*1024)
 	var seq uint64
 	var current Tool = Generic
+	counts := map[Level]int{Error: 0, Warning: 0}
+	seen := map[string]bool{}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -135,6 +137,14 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 			event.Diagnostic = ParseDiagnostic(current, text)
 			if event.Diagnostic != nil {
 				event.Level = event.Diagnostic.Level
+				if e.Options.Mode == Transform && e.Renderer == nil && e.Options.Color {
+					key := fmt.Sprintf("%s:%d:%d:%s:%s", event.Diagnostic.File, event.Diagnostic.Line, event.Diagnostic.Column, event.Diagnostic.Code, event.Diagnostic.Message)
+					if seen[key] {
+						continue
+					}
+					seen[key] = true
+					counts[event.Level]++
+				}
 			}
 			var out []byte
 			var renderErr error
@@ -151,6 +161,10 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 			}
 		}
 		if err == io.EOF {
+			if e.Options.Mode == Transform && e.Renderer == nil && e.Options.Color && counts[Error]+counts[Warning] > 0 {
+				_, writeErr := fmt.Fprintf(dst, "\n\x1b[1mDiagnostics: \x1b[31m%d errors\x1b[0m, \x1b[33m%d warnings\x1b[0m\n", counts[Error], counts[Warning])
+				return writeErr
+			}
 			return nil
 		}
 		if err != nil {

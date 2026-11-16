@@ -10,11 +10,12 @@ import (
 )
 
 func TestExtendedLogFixtures(t *testing.T) {
-	cases := []struct {
-		name  string
-		tool  Tool
-		want  string
-	}{
+	type fixtureCase struct {
+		name	string
+		tool	Tool
+		want	string
+	}
+	cases := []fixtureCase{
 		{"typescript", TypeScript, "TS2322"},
 		{"npm", NPM, "missing script"},
 		{"gcloud", GCloud, "Permission"},

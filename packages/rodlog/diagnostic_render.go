@@ -2,6 +2,7 @@ package rodlog
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -33,6 +34,11 @@ func renderDiagnostic(d *Diagnostic) []byte {
 	fmt.Fprintf(&out, "\x1b[1;%sm%s\x1b[0m  \x1b[2m%s\x1b[0m%s\n", color, heading, location, code)
 	for _, line := range strings.Split(message, "\n") {
 		fmt.Fprintf(&out, "  %s\n", line)
+	}
+	if d.File != "" && d.Line > 0 && d.Line <= 100000 {
+		if frame := diagnosticFrame(d); frame != "" {
+			out.WriteString(frame)
+		}
 	}
 	return []byte(out.String())
 }
