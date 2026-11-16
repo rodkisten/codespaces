@@ -2,8 +2,7 @@
 set -eu
 
 REPO="${RODLOG_REPO:-rodkisten/codespaces}"
-WORKFLOW="rodlog.yml"
-ARTIFACT="rodlog-main-binaries"
+BASE="${RODLOG_RELEASE_BASE:-https://rodkisten.github.io/rodlog/releases}"
 DEST="${RODLOG_INSTALL_DIR:-$HOME/.local/bin}"
 HOOK="${RODLOG_INSTALL_HOOK:-none}"
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -23,36 +22,24 @@ case "$HOOK" in
   *) echo "RODLOG_INSTALL_HOOK must be none, bash, zsh or both" >&2; exit 1 ;;
 esac
 
-command -v gh >/dev/null 2>&1 || {
-  echo "GitHub CLI (gh) is required to download GitHub Actions artifacts." >&2
-  echo "Install gh and authenticate using 'gh auth login'." >&2
-  exit 1
-}
-command -v unzip >/dev/null 2>&1 || {
-  echo "unzip is required" >&2
-  exit 1
+download() {
+  if command -v curl >/dev/null 2>&1; then
+    curl -fLsS --retry 3 "$1" -o "$2"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$2" "$1"
+  else
+    echo "curl or wget is required" >&2
+    exit 1
+  fi
 }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
-
-echo "🔎 Finding the latest successful main build for $REPO..."
-RUN_ID="$(gh api -X GET "repos/$REPO/actions/workflows/$WORKFLOW/runs" \
-  -f branch=main -f status=success -f event=push -f per_page=30 \
-  --jq '.workflow_runs[] | select(.head_branch == "main") | .id' | head -n 1)"
-[ -n "$RUN_ID" ] || {
-  echo "No successful main build found. Merge rodlog into main first." >&2
-  exit 1
-}
-
-echo "📦 Downloading artifact $ARTIFACT from run $RUN_ID..."
-gh run download "$RUN_ID" -R "$REPO" -n "$ARTIFACT" -D "$TMP"
-
 NAME="rodlog_${OS}_${ARCH}"
-[ -f "$TMP/$NAME" ] && [ -f "$TMP/checksums.txt" ] || {
-  echo "Missing binary or checksums in GitHub artifact" >&2
-  exit 1
-}
+
+echo "📦 Downloading $NAME from $BASE..."
+download "$BASE/$NAME" "$TMP/$NAME"
+download "$BASE/checksums.txt" "$TMP/checksums.txt"
 
 EXPECTED="$(awk -v f="$NAME" '$2==f {print $1}' "$TMP/checksums.txt")"
 [ -n "$EXPECTED" ] || { echo "Missing checksum for $NAME" >&2; exit 1; }
@@ -64,17 +51,16 @@ else
   echo "sha256sum or shasum is required" >&2
   exit 1
 fi
-[ "$EXPECTED" = "$ACTUAL" ] || { echo "Checksum mismatch" >&2; exit 1; }
+[ "$EXPECTED" = "$ACTUAL" ] || { echo "Checksum mismatch for $NAME" >&2; exit 1; }
 
 mkdir -p "$DEST"
 install -m 755 "$TMP/$NAME" "$DEST/rodlog"
-echo "🌈 Installed $DEST/rodlog (main build $RUN_ID)"
+echo "🌈 Installed $DEST/rodlog"
 
 if [ "$HOOK" != none ]; then
   HOOKFILE="$HOME/.config/rodlog/hook.sh"
   mkdir -p "$HOME/.config/rodlog"
-  gh api "repos/$REPO/contents/packages/rodlog/scripts/shell-hook.sh?ref=main" \
-    -H "Accept: application/vnd.github.raw+json" > "$TMP/hook.sh"
+  download "https://raw.githubusercontent.com/$REPO/main/packages/rodlog/scripts/shell-hook.sh" "$TMP/hook.sh"
   install -m 644 "$TMP/hook.sh" "$HOOKFILE"
   for shell in bash zsh; do
     case "$HOOK:$shell" in "$shell:$shell"|both:*) ;; *) continue ;; esac

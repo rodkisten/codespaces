@@ -139,3 +139,8 @@ curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/packages/
 ```
 
 The installer retrieves the newest successful push workflow run on `main`, downloads the named Actions artifact, verifies the selected platform binary's checksum, and installs to `~/.local/bin/rodlog`. It never builds locally. Because Actions artifacts are not permanent releases, publish a release for long-term retention when needed.
+
+
+## 🌐 Public release downloads
+
+The installer now downloads platform binaries directly from [rodlog releases](https://rodkisten.github.io/rodlog/releases/) without GitHub CLI authentication. The publishing workflow must first successfully push the binaries to the site repository. Override the mirror with `RODLOG_RELEASE_BASE` if needed. Checksums are verified before installation.
