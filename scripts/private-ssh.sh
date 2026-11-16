@@ -1,58 +1,61 @@
 #!/usr/bin/env bash
-# Private SSH/SFTP diagnostics. No credentials, dotfiles or sync configuration are read.
+# SSH/SFTP through the Tailscale userspace daemon, without a TUN device.
 set -Eeuo pipefail
-
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/rod-codespaces/tailscale"
+socket="$state_dir/tailscaled.sock"
 usage() {
   cat <<'HELP'
-Usage: bash scripts/private-ssh.sh doctor [host] [user]
+Usage: bash scripts/private-ssh.sh doctor [HOST]
        bash scripts/private-ssh.sh ssh HOST USER
        bash scripts/private-ssh.sh sftp HOST USER
        bash scripts/private-ssh.sh tailscale
-
-HOST should be a Tailscale IP (100.x.y.z) or MagicDNS name.
-This helper never enables SSH servers, copies keys, or modifies ~/.ssh/config.
-Authentication uses the existing OpenSSH agent or an interactive prompt.
+SSH and SFTP use Tailscale's userspace TCP proxy (tailscale nc).
+First login: bash scripts/tailscale.sh up
 HELP
+}
+valid_host() {
+  [[ "$1" =~ ^[a-zA-Z0-9._:-]+$ && "$1" != -* ]]
 }
 action="${1:-doctor}"
 case "$action" in
   doctor)
-    printf '🔐 Private SSH/SFTP doctor\n'
-    for tool in ssh sftp ssh-keygen tailscale; do
+    printf '🔐 SSH/SFTP through Tailscale userspace\n'
+    for tool in ssh sftp tailscale tailscaled; do
       if command -v "$tool" >/dev/null 2>&1; then
-        printf '  ✓ %-12s %s\n' "$tool" "$(command -v "$tool")"
+        printf '  ✓ %s available\n' "$tool"
       else
-        printf '  ! %-12s unavailable\n' "$tool"
+        printf '  ! %s unavailable\n' "$tool"
       fi
     done
-    if command -v tailscale >/dev/null 2>&1; then
-      tailscale status || printf '  ! Tailscale not connected\n'
+    if [[ -S "$socket" ]]; then
+      tailscale --socket="$socket" status || true
+    else
+      echo '  ! Tailscale daemon socket missing'
     fi
     if [[ -n "${2:-}" ]]; then
-      host="$2"
-      if [[ ! "$host" =~ ^[a-zA-Z0-9._:-]+$ || "$host" == -* ]]; then
-        echo 'Invalid host' >&2; exit 2
-      fi
-      echo "Checking TCP port 22 on $host"
-      if timeout 6 bash -c 'exec 3<>/dev/tcp/"$1"/22' _ "$host" 2>/dev/null; then
-        echo '  ✓ TCP/22 reachable'
-      else
-        echo '  ! TCP/22 unavailable (ACL, firewall, sshd or network)'
-      fi
+      valid_host "$2" || { echo 'Invalid host' >&2; exit 2; }
+      tailscale --socket="$socket" ping "$2"
     fi
     ;;
   tailscale)
-    command -v tailscale >/dev/null || { echo 'Tailscale CLI not installed' >&2; exit 1; }
-    tailscale status
+    exec bash "$repo_dir/tailscale.sh" status
     ;;
   ssh|sftp)
     [[ $# == 3 ]] || { usage >&2; exit 2; }
     host="$2"; user="$3"
-    [[ "$host" =~ ^[a-zA-Z0-9._:-]+$ && "$host" != -* ]] || { echo 'Invalid host' >&2; exit 2; }
+    valid_host "$host" || { echo 'Invalid host' >&2; exit 2; }
     [[ "$user" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$ ]] || { echo 'Invalid user' >&2; exit 2; }
-    # StrictHostKeyChecking=ask preserves verification on first connection.
-    # BatchMode=no permits interactive authentication without copying keys.
-    exec "$action" -o StrictHostKeyChecking=ask -o ConnectTimeout=10 -o ServerAliveInterval=20 -- "$user@$host"
+    bash "$repo_dir/tailscale.sh" start
+    tailscale --socket="$socket" status >/dev/null || {
+      echo 'Tailscale is not connected. Run: bash scripts/tailscale.sh up' >&2
+      exit 1
+    }
+    # ProxyCommand uses Tailscale's own TCP dialer, so no system TUN is needed.
+    # %h and %p are expanded by OpenSSH; strict host-key checks stay enabled.
+    proxy="tailscale --socket=$socket nc %h %p"
+    exec "$action" -o "ProxyCommand=$proxy" -o StrictHostKeyChecking=ask \
+      -o ConnectTimeout=15 -o ServerAliveInterval=20 -- "$user@$host"
     ;;
   *) usage >&2; exit 2 ;;
 esac
