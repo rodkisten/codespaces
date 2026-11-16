@@ -240,7 +240,7 @@ func Render(ev Event, opts Options) []byte {
 		color = "33"
 	case Success:
 		color = "32"
-		}
+	}
 	if color == "" {
 		return []byte(text)
 	}
