@@ -175,3 +175,9 @@ gcloud run services list
 ```
 
 Shell functions requiring current-shell state are not safe to execute through subprocess wrappers. Use `rlog` explicitly for external programs. Automatic wrapping is disabled by default.
+
+### Shell hook verification and limitations
+
+Run `bash scripts/test-shell-hook.sh` to validate executable wrapping, argument forwarding, exit codes, opt-in behavior, and preservation of existing aliases/functions. Wrapping resolves the external executable path **before** installing a shell function to avoid accidental recursion. Only the built-in allowlist is accepted.
+
+Aliases and shell functions are intentionally **not** overridden. To run an alias or shell function with shell-local state, invoke it normally; to enhance an external command, use `rlog COMMAND ...`. Automatic alias expansion and arbitrary function interception would require shell-specific evaluation and are not enabled.
