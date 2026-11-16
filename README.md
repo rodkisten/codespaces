@@ -110,3 +110,21 @@ Tailscale (por exemplo `tailscale nc`) ou configure um SOCKS5 explícito.
 `ssh usuario@100.x.y.z` direto pode não funcionar nesse modo.
 O daemon reconecta automaticamente após o reinício quando o estado autenticado
 persistir; se o estado não persistir após um rebuild, será necessário autenticar novamente.
+
+### Login automático com secret do Codespaces
+
+Cadastre `TAILSCALE_AUTHKEY` em [GitHub Codespaces secrets](https://github.com/settings/codespaces)
+e conceda acesso ao repositório `rodkisten/codespaces`. O bootstrap inicia o
+daemon e usa essa chave **apenas quando ainda não está conectado**.
+O segredo não é escrito nos logs nem passado diretamente como argumento de processo;
+é armazenado temporariamente em arquivo privado, removido após a tentativa.
+O estado autenticado é mantido no diretório local do Codespace.
+
+```bash
+bash scripts/tailscale.sh auto
+bash scripts/tailscale.sh status
+bash scripts/tailscale.sh ip
+```
+
+Se a chave expirar, substitua o secret e execute `bash scripts/tailscale.sh auto`.
+Uma auth key de registro não é a mesma coisa que uma API key.
