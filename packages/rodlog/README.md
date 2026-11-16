@@ -208,3 +208,5 @@ Start with [`rodlog.go`](rodlog.go) for the streaming engine and `Render` decisi
 The fixtures under `testdata/` are **synthetic representative examples**, not captured production logs. Use `go test -race ./...` to validate behavior and `go test -v -run TestOutputExamples ./...` for demonstrations.
 
 📐 **Architecture walkthrough:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+🗺️ **Feature roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md), including TypeScript diagnostic cards, Vitest/Node tests, Docker runtime logs and Python tracebacks.
