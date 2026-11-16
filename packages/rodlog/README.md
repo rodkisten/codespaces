@@ -120,3 +120,22 @@ go test -race -v ./...
 ```
 
 The examples are offline and do not deploy to Google Cloud, Cloudflare or Docker. The visible ANSI escape sequences are intentional, so terminal viewers can show colors when supported.
+
+
+## 📦 Main-branch build artifacts
+
+The **🌈 rodlog · Test & Release** workflow runs only when `packages/rodlog/**` or its workflow changes. PRs run validation; successful pushes to `main` additionally cross-compile four binaries and upload the `rodlog-main-binaries` GitHub Actions artifact, containing SHA-256 checksums. Artifacts expire after 90 days.
+
+Install the latest successful main build (requires GitHub CLI `gh`, authenticated repository access, and `unzip`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/packages/rodlog/scripts/install.sh | sh
+```
+
+To enable Bash and Zsh helpers:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/packages/rodlog/scripts/install.sh | RODLOG_INSTALL_HOOK=both sh
+```
+
+The installer retrieves the newest successful push workflow run on `main`, downloads the named Actions artifact, verifies the selected platform binary's checksum, and installs to `~/.local/bin/rodlog`. It never builds locally. Because Actions artifacts are not permanent releases, publish a release for long-term retention when needed.

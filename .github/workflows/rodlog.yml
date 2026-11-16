@@ -10,8 +10,6 @@ on:
       - "packages/rodlog/**"
       - ".github/workflows/rodlog.yml"
   workflow_dispatch:
-  release:
-    types: [published]
 
 permissions:
   contents: read
@@ -48,12 +46,14 @@ jobs:
       - name: 🔨 Build
         run: go build ./cmd/rodlog
 
-  release:
-    if: github.event_name == 'release'
+  artifacts:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: 📦 Publish main build artifacts
+    needs: test
     needs: test
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -73,6 +73,10 @@ jobs:
           done
           cd ../../dist
           sha256sum rodlog_* > checksums.txt
-      - uses: softprops/action-gh-release@v2
+      - name: 📎 Upload installable binaries
+        uses: actions/upload-artifact@v4
         with:
-          files: dist/*
+          name: rodlog-main-binaries
+          path: dist/
+          if-no-files-found: error
+          retention-days: 90
