@@ -331,11 +331,9 @@ jobs:
           fi
       - name: Final remote personal shell sync
         if: always()
-        env:
-          SSH_SYNC_TOKEN: ${{ steps.bot.outputs.token }}
         shell: bash
         run: |
-          if [[ -n "${SSH_SYNC_TOKEN:-}" && -f scripts/rod-sync.sh ]]; then
+          if [[ -f "$HOME/.local/state/rod-ssh-sync/token" && -f scripts/rod-sync.sh ]]; then
             bash scripts/rod-sync.sh now || echo "::warning::Final remote sync failed"
           else
             echo "[SKIP] Remote sync unavailable"
