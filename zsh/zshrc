@@ -40,4 +40,8 @@ function extract() {
   esac
 }
 # Never store access tokens, secrets or credentials in this tracked file.
-[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+# Isolation by default: do not auto-load personal or synced dotfiles.
+# To opt in for this session only: export ROD_LOAD_LOCAL_ZSHRC=1
+if [[ "${ROD_LOAD_LOCAL_ZSHRC:-0}" == "1" && -f "$HOME/.zshrc.local" ]]; then
+  source "$HOME/.zshrc.local"
+fi
