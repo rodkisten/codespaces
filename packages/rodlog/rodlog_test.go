@@ -21,7 +21,7 @@ func TestColors(t *testing.T){
  var dst bytes.Buffer
  e:=New(Options{Color:true})
  _=e.Process(context.Background(),strings.NewReader("npm ERR! broken\n"),&dst)
- if !strings.Contains(dst.String(),"\x1b[31m"){t.Fatal(dst.String())}
+ if !strings.Contains(dst.String(),"\x1b[1;31m"){t.Fatal(dst.String())}
 }
 type failingRenderer struct{}
 func(failingRenderer)Render(Event)([]byte,error){return nil,errors.New("boom")}
