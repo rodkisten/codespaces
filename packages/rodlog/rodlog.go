@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -116,6 +117,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 	var current Tool = Generic
 	counts := map[Level]int{Error: 0, Warning: 0}
 	seen := map[string]bool{}
+	grouped := map[string]map[Level]int{}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -144,6 +146,14 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 					}
 					seen[key] = true
 					counts[event.Level]++
+					group := event.Diagnostic.File
+					if group == "" {
+						group = string(event.Diagnostic.Tool)
+					}
+					if grouped[group] == nil {
+						grouped[group] = map[Level]int{}
+					}
+					grouped[group][event.Level]++
 				}
 			}
 			var out []byte
@@ -162,6 +172,16 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 		}
 		if err == io.EOF {
 			if e.Options.Mode == Transform && e.Renderer == nil && e.Options.Color && counts[Error]+counts[Warning] > 0 {
+				groups := make([]string, 0, len(grouped))
+				for name := range grouped {
+					groups = append(groups, name)
+				}
+				sort.Strings(groups)
+				for _, name := range groups {
+					if _, writeErr := fmt.Fprintf(dst, "  \x1b[2m%s\x1b[0m  \x1b[31m%d errors\x1b[0m · \x1b[33m%d warnings\x1b[0m\n", name, grouped[name][Error], grouped[name][Warning]); writeErr != nil {
+						return writeErr
+					}
+				}
 				_, writeErr := fmt.Fprintf(dst, "\n\x1b[1mDiagnostics: \x1b[31m%d errors\x1b[0m, \x1b[33m%d warnings\x1b[0m\n", counts[Error], counts[Warning])
 				return writeErr
 			}

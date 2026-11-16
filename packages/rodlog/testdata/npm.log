@@ -1,3 +1,192 @@
+# Extended synthetic npm diagnostic session (representative, not captured)
+--- run 1 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 2 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 3 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 4 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 5 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 6 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 7 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 8 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 9 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 10 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 11 ---
+> workspace@1.0.0 build
+> vite build
+
+vite v6.0.0 building for production...
+transforming...
+✓ 128 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html 0.91 kB
+npm WARN deprecated inflight@1.0.6: This module is not supported.
+npm WARN deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported.
+npm notice New major version of npm available!
+npm ERR! Missing script: "release"
+npm ERR! To see a list of scripts, run:
+npm ERR!   npm run
+npm ERR! A complete log of this run can be found in: /tmp/npm/_logs/example-debug-0.log
+--- run 12 ---
 > workspace@1.0.0 build
 > vite build
 

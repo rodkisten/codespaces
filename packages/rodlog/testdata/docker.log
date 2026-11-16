@@ -1,3 +1,225 @@
+# Extended synthetic docker diagnostic session (representative, not captured)
+--- run 1 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 2 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 3 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 4 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 5 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 6 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 7 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 8 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 9 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 10 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 11 ---
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 615B done
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#4 [1/4] FROM docker.io/library/node:22-alpine
+#5 [2/4] WORKDIR /app
+#6 [3/4] COPY package.json package-lock.json ./
+#7 [4/4] RUN npm ci
+#7 0.3 npm ERR! code ERESOLVE
+#7 ERROR: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+Dockerfile:12
+--------------------
+  10 | COPY package.json package-lock.json ./
+  11 | RUN npm ci
+  12 | RUN npm run build
+--------------------
+ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1
+--- run 12 ---
 #0 building with "default" instance using docker driver
 #1 [internal] load build definition from Dockerfile
 #1 transferring dockerfile: 615B done

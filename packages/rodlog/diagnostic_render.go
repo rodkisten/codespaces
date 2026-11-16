@@ -2,7 +2,6 @@ package rodlog
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -39,6 +38,9 @@ func renderDiagnostic(d *Diagnostic) []byte {
 		if frame := diagnosticFrame(d); frame != "" {
 			out.WriteString(frame)
 		}
+	}
+	if suggestion := diagnosticSuggestion(d); suggestion != "" {
+		fmt.Fprintf(&out, "  \x1b[36m💡 %s\x1b[0m\n", suggestion)
 	}
 	return []byte(out.String())
 }

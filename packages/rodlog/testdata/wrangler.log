@@ -1,3 +1,181 @@
+# Extended synthetic wrangler diagnostic session (representative, not captured)
+--- run 1 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 2 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 3 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 4 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 5 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 6 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 7 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 8 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 9 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 10 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 11 ---
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
+--- run 12 ---
  ⛅️ wrangler 4.0.0
 -------------------
 Using vars defined in wrangler.toml
