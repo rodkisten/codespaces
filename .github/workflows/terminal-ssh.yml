@@ -21,6 +21,7 @@ jobs:
       TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
       SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
       SESSION_MINUTES: ${{ inputs.minutes }}
+      TAILSCALE_HOSTNAME: rod-terminal
     steps:
       - uses: actions/checkout@v4
       - name: Validate configuration
@@ -73,7 +74,17 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          bash scripts/tailscale.sh auto
+          # Set a predictable node name; Tailscale may append a suffix if an
+          # older node with this name is still registered in the tailnet.
+          export TS_SOCKET="$HOME/.local/state/rod-codespaces/tailscale/tailscaled.sock"
+          bash scripts/tailscale.sh start
+          state_dir="$HOME/.local/state/rod-codespaces/tailscale"
+          key_file="$(mktemp "$state_dir/authkey.XXXXXXXX")"
+          chmod 600 "$key_file"
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s' "$TAILSCALE_AUTHKEY" > "$key_file"
+          timeout 60 tailscale --socket="$TS_SOCKET" up --auth-key="file:$key_file" --hostname="$TAILSCALE_HOSTNAME" --accept-dns=false
+          rm -f "$key_file"
           # Userspace Tailscale has no kernel interface; Tailscale Serve forwards
           # inbound tailnet TCP traffic to the loopback-only SSH daemon.
           tailscale --socket="$HOME/.local/state/rod-codespaces/tailscale/tailscaled.sock" serve --bg --tcp=22 tcp://127.0.0.1:2222
@@ -84,6 +95,9 @@ jobs:
           echo '' >> "$GITHUB_STEP_SUMMARY"
           echo 'Tailnet IP:' >> "$GITHUB_STEP_SUMMARY"
           bash scripts/tailscale.sh ip | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Actual Tailscale device name (check for numeric suffixes):' >> "$GITHUB_STEP_SUMMARY"
+          tailscale --socket="$TS_SOCKET" status --json | jq -r '.Self.DNSName // .Self.HostName // "unknown"' | tee -a "$GITHUB_STEP_SUMMARY"
           echo "::notice::SSH is available only while this workflow runs. Check the job summary for its tailnet IP."
       - name: Keep SSH available
         shell: bash
