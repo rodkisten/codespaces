@@ -202,6 +202,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 		}
 	}
 }
+
 // Render applies presentation to a single event. Existing ANSI sequences win
 // over our palette; unrecognized output is preserved rather than rewritten.
 // Transform may replace recognized diagnostics with structured error cards.
