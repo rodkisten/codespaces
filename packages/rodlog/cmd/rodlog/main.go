@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/rodkisten/codespaces/packages/rodlog"
@@ -29,6 +28,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	tool := flags.String("tool", env("RODLOG_TOOL", "auto"), "auto|npm|typescript|gcloud|wrangler|docker")
 	jsonOutput := flags.Bool("json", false, "request JSON for allowlisted commands and show a summary table in transform mode")
 	color := flags.String("color", env("RODLOG_COLOR", "auto"), "auto|always|never")
+	output := flags.String("output", env("RODLOG_OUTPUT", "terminal"), "terminal|jsonl|github")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -45,8 +45,18 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "invalid color:", *color)
 		return 2
 	}
+	if *output != "terminal" && *output != "jsonl" && *output != "github" {
+		fmt.Fprintln(stderr, "invalid output:", *output)
+		return 2
+	}
 	enableColor := *color == "always" || (*color == "auto" && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb" && isTerminal(stdout))
 	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor})
+	switch *output {
+	case "jsonl":
+		engine.Renderer = rodlog.JSONLRenderer{}
+	case "github":
+		engine.Renderer = rodlog.AnnotationRenderer{}
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if !commandMode {
@@ -111,4 +121,3 @@ func isTerminal(w io.Writer) bool {
 }
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
-var _ = strings.TrimSpace

@@ -150,3 +150,14 @@ The installer now downloads platform binaries directly from [rodlog releases](ht
 The stream now carries an optional `Event.Diagnostic` with tool, severity, code, file, line, column and message, without changing the original `Event.Text`. Initial adapters recognize TypeScript (both common location formats), npm warnings/errors/notices, gcloud errors/warnings and Docker build failures or Dockerfile locations. Unknown lines fall back to the existing renderer. Consumers can implement `Renderer.Render(Event)` to produce structured integrations; no subprocess or shell code is evaluated by these parsers.
 
 **Next:** multiline diagnostics, richer Wrangler/npm adapters, JSONL output, GitHub annotations, and AST-backed source analysis with a version-pinned shell parser. Syntax coloring via Chroma is separate from semantic extraction.
+
+### Machine-readable output and GitHub Actions
+
+Use `--output=jsonl` to emit one JSON event per input line (including the original `Text` and optional `Diagnostic`). Use `--output=github` to emit only recognized error/warning workflow annotations. Both work in stdin and `exec` modes. The default `--output=terminal` preserves terminal rendering. `RODLOG_OUTPUT` sets the default output format.
+
+```sh
+npm run typecheck 2>&1 | rodlog --tool=typescript --output=jsonl
+rodlog exec --tool=typescript --output=github -- npm run typecheck
+```
+
+The GitHub annotation format is designed for GitHub Actions log processing. In local terminals, prefer the default renderer. `--output=github` deliberately omits unrecognized lines.
