@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Diagnostic is the stable, renderer-independent representation of a tool message.
+// Diagnostic is the renderer-independent representation of a tool message.
 // Original output remains in Event.Text; parsers must never rewrite source bytes.
 type Diagnostic struct {
 	Tool    Tool   `json:"tool"`
@@ -26,6 +26,8 @@ var (
 	gcloudPrefix   = regexp.MustCompile(`^(ERROR|WARNING):\s*(?:\(gcloud(?:\.[^)]+)?\)\s*)?(.+)$`)
 	dockerPrefix   = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
 	dockerLocation = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
+	wranglerPrefix = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
+	wranglerError  = regexp.MustCompile(`(?i)^(?:✘\s*)?(?:error|warning):\s*(.+)$`)
 )
 
 // ParseDiagnostic recognizes structured diagnostics without executing any input.
@@ -93,6 +95,21 @@ func ParseDiagnostic(tool Tool, input string) *Diagnostic {
 				d.Column, _ = strconv.Atoi(m[2])
 			}
 			d.Message = line
+			return d
+		}
+	case Wrangler:
+		if m := wranglerPrefix.FindStringSubmatch(line); m != nil {
+			if m[1] == "WARNING" {
+				d.Level = Warning
+			}
+			d.Message = m[2]
+			return d
+		}
+		if m := wranglerError.FindStringSubmatch(line); m != nil {
+			if strings.Contains(strings.ToLower(line), "warning:") {
+				d.Level = Warning
+			}
+			d.Message = m[1]
 			return d
 		}
 	}

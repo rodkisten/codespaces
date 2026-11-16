@@ -185,3 +185,7 @@ Aliases and shell functions are intentionally **not** overridden. To run an alia
 ## Shell semantic AST
 
 `AnalyzeShell(source, dialect)` uses the maintained Go parser `mvdan.cc/sh/v3/syntax` to build a real Bash/POSIX/mksh AST. It returns literal command invocations with source line/column, arguments and matched tool inventory entries. Shell expansions are not executed or guessed. Zsh is explicitly rejected rather than silently interpreted as Bash because this parser does not implement full Zsh grammar. The next integration step will connect the AST to an interactive shell-aware command hook and diagnostic frames.
+
+## Extended diagnostic fixtures
+
+The five `testdata/*.log` files now contain longer **synthetic, realistic examples** modeled on common CLI output formats. They are not verbatim captured production logs and contain no credentials or personal data. Tests exercise preservation of uncolored output, ANSI transform rendering, and structured diagnostic recognition. In transform mode, diagnostic cards display severity, source location and message; unsupported lines retain the original conservative behavior.

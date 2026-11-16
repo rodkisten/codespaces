@@ -5,10 +5,14 @@ import (
 	"strings"
 )
 
+// renderDiagnostic formats a structured error with a clear severity, location,
+// diagnostic code, and message. Only transform mode uses this presentation.
 func renderDiagnostic(d *Diagnostic) []byte {
-	heading, color := "✖", "31"
+	heading, color := "✖ ERROR", "31"
 	if d.Level == Warning {
-		heading, color = "⚠", "33"
+		heading, color = "⚠ WARNING", "33"
+	} else if d.Level == Info {
+		heading, color = "ℹ INFO", "36"
 	}
 	location := d.File
 	if d.Line > 0 {
@@ -24,5 +28,11 @@ func renderDiagnostic(d *Diagnostic) []byte {
 	if d.Code != "" {
 		code = " [" + d.Code + "]"
 	}
-	return []byte(fmt.Sprintf("\x1b[1;%sm%s %s%s\x1b[0m\n  %s\n", color, heading, location, code, strings.TrimSpace(d.Message)))
+	message := strings.TrimSpace(d.Message)
+	var out strings.Builder
+	fmt.Fprintf(&out, "\x1b[1;%sm%s\x1b[0m  \x1b[2m%s\x1b[0m%s\n", color, heading, location, code)
+	for _, line := range strings.Split(message, "\n") {
+		fmt.Fprintf(&out, "  %s\n", line)
+	}
+	return []byte(out.String())
 }
