@@ -161,6 +161,12 @@ func Render(ev Event, opts Options) []byte {
 	if ansi.MatchString(text) {
 		return []byte(text)
 	}
+	// Structured payloads use Chroma; diagnostic lines retain semantic token highlighting.
+	if language := syntaxLanguage(text); language != "" {
+		if colored, err := SyntaxHighlight(strings.TrimRight(text, "\r\n"), language); err == nil {
+			return []byte(colored + text[len(strings.TrimRight(text, "\r\n")):])
+		}
+	}
 	// Tool-aware spans take precedence over whole-line severity styling.
 	highlighted := highlightLine(text)
 	if highlighted != text {

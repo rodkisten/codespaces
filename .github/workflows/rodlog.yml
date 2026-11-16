@@ -36,6 +36,8 @@ jobs:
             echo "::warning::Go sources require a gofmt commit; showing the formatting diff"
             git diff --stat -- '*.go'
           fi
+      - name: 📦 Verify Go dependencies
+        run: go mod download
       - name: 🧪 Go tests
         run: go test -race -v ./...
       - name: 🎬 Output examples
