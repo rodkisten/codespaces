@@ -58,6 +58,20 @@ jobs:
           ssh-keygen -lf "$HOME/.ssh/authorized_keys" -E sha256
           getent passwd runner | cut -d: -f1,6,7
           stat -c '%U:%G %a %n' "$HOME" "$HOME/.ssh" "$HOME/.ssh/authorized_keys"
+          # Ubuntu hosted runners may ship the runner account with a locked
+          # shadow password. OpenSSH rejects the account before checking keys.
+          # Give it a random unknown password hash to unlock the account;
+          # SSH password and keyboard-interactive authentication remain disabled.
+          random_password="$(openssl rand -hex 48)"
+          password_hash="$(openssl passwd -6 "$random_password")"
+          unset random_password
+          printf 'runner:%s\n' "$password_hash" | sudo chpasswd -e
+          unset password_hash
+          if sudo passwd -S runner | awk '{print $2}' | grep -qx L; then
+            echo "::error::runner account is still locked"
+            exit 1
+          fi
+          echo "runner account unlocked; SSH remains key-only"
           sudo mkdir -p /run/sshd
           sudo tee /tmp/rod-sshd.conf >/dev/null <<EOF
           Port 2222
