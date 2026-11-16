@@ -118,6 +118,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 	counts := map[Level]int{Error: 0, Warning: 0}
 	seen := map[string]bool{}
 	grouped := map[string]map[Level]int{}
+	lastGroup := ""
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -154,6 +155,12 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 						grouped[group] = map[Level]int{}
 					}
 					grouped[group][event.Level]++
+					if group != lastGroup {
+						if _, writeErr := fmt.Fprintf(dst, "\n\x1b[1;36m▸ %s\x1b[0m\n", group); writeErr != nil {
+							return writeErr
+						}
+						lastGroup = group
+					}
 				}
 			}
 			var out []byte

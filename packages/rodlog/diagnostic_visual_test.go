@@ -4,9 +4,9 @@ import "testing"
 
 func TestVisualColumn(t *testing.T) {
 	cases := []struct {
-		input string
-		column int
-		want int
+		input	string
+		column	int
+		want	int
 	}{
 		{"abc", 3, 2},
 		{"\tx", 2, 8},

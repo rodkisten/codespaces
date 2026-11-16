@@ -193,3 +193,5 @@ The five `testdata/*.log` files now contain longer **synthetic, realistic exampl
 ### Code frames and summary
 
 In colored transform mode, local relative source files (up to 1 MiB) can provide a five-line diagnostic frame with a column caret. Duplicate structured diagnostics are suppressed and a final error/warning count is printed. Raw, enhance, JSONL and GitHub annotation modes retain their prior behavior. No source is read for absolute or parent-traversal paths.
+
+In colored transform mode, diagnostics are now separated into file/tool sections as their group changes during streaming. This is contiguous grouping, not reordering: interleaved output remains in its original order. The final sorted group summary is unchanged.
