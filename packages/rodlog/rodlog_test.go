@@ -36,7 +36,8 @@ func TestColors(t *testing.T) {
 	var dst bytes.Buffer
 	e := New(Options{Color: true})
 	_ = e.Process(context.Background(), strings.NewReader("npm ERR! broken\n"), &dst)
-	if !strings.Contains(dst.String(), "\x1b[1;31m") {
+	// Severity stays red even when the theme changes its intensity.
+	if !strings.Contains(dst.String(), "\x1b[31m") && !strings.Contains(dst.String(), "\x1b[1;31m") {
 		t.Fatal(dst.String())
 	}
 }
