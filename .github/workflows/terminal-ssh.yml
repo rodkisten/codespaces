@@ -20,7 +20,6 @@ jobs:
     env:
       TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
       SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
-      SSH_SYNC_TOKEN: ${{ secrets.SSH_SYNC_TOKEN }}
       SESSION_MINUTES: ${{ inputs.minutes }}
       TAILSCALE_HOSTNAME: rod-terminal
     steps:
@@ -33,6 +32,15 @@ jobs:
           [[ -n "$SSH_PUBLIC_KEY" ]] || { echo "::error::Set repository variable SSH_PUBLIC_KEY"; exit 1; }
           [[ "$SSH_PUBLIC_KEY" =~ ^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa)[[:space:]]+[A-Za-z0-9+/=]+([[:space:]].*)?$ ]] || { echo "::error::SSH_PUBLIC_KEY must be a single OpenSSH public key"; exit 1; }
           [[ "$SESSION_MINUTES" =~ ^[0-9]+$ ]] && (( SESSION_MINUTES >= 5 && SESSION_MINUTES <= 300 )) || { echo "::error::minutes must be 5..300"; exit 1; }
+      - name: Generate Rod Kisten Bot installation token
+        id: bot
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+          owner: rodkisten
+          repositories: ssh
+          permission-contents: write
       - name: Restore persistent workspace
         uses: actions/cache/restore@v4
         with:
@@ -248,6 +256,8 @@ jobs:
           printf '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
           echo "Rod shell setup completed"
       - name: Initialize remote personal shell sync
+        env:
+          SSH_SYNC_TOKEN: ${{ steps.bot.outputs.token }}
         shell: bash
         run: |
           if [[ -n "${SSH_SYNC_TOKEN:-}" ]]; then
@@ -259,6 +269,8 @@ jobs:
           printf '#!/usr/bin/env bash\nexec bash "%s/scripts/rod-sync.sh" "$@"\n' "$GITHUB_WORKSPACE" > "$HOME/.local/bin/rod-sync"
           chmod 700 "$HOME/.local/bin/rod-sync"
       - name: Keep SSH available
+        env:
+          SSH_SYNC_TOKEN: ${{ steps.bot.outputs.token }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -307,6 +319,8 @@ jobs:
           fi
       - name: Final remote personal shell sync
         if: always()
+        env:
+          SSH_SYNC_TOKEN: ${{ steps.bot.outputs.token }}
         shell: bash
         run: |
           if [[ -n "${SSH_SYNC_TOKEN:-}" && -f scripts/rod-sync.sh ]]; then
