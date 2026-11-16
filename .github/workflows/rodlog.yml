@@ -37,7 +37,9 @@ jobs:
             git diff --stat -- '*.go'
           fi
       - name: 📦 Verify Go dependencies
-        run: go mod download
+        run: |
+          go mod tidy
+          go mod verify
       - name: 🧪 Go tests
         run: go test -race -v ./...
       - name: 🎬 Output examples
@@ -57,6 +59,8 @@ jobs:
         with:
           go-version-file: packages/rodlog/go.mod
           cache: false
+      - name: 📦 Resolve Go modules
+        run: cd packages/rodlog && go mod tidy
       - name: 📦 Cross-compile
         run: |
           mkdir -p dist
