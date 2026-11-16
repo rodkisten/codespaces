@@ -53,6 +53,11 @@ jobs:
           chmod 700 "$HOME/.ssh" .rod-workspace
           printf '%s\n' "$SSH_PUBLIC_KEY" > "$HOME/.ssh/authorized_keys"
           chmod 600 "$HOME/.ssh/authorized_keys"
+          sudo chown -R runner:runner "$HOME/.ssh"
+          echo "Authorized client key fingerprint:"
+          ssh-keygen -lf "$HOME/.ssh/authorized_keys" -E sha256
+          getent passwd runner | cut -d: -f1,6,7
+          stat -c '%U:%G %a %n' "$HOME" "$HOME/.ssh" "$HOME/.ssh/authorized_keys"
           sudo mkdir -p /run/sshd
           sudo tee /tmp/rod-sshd.conf >/dev/null <<EOF
           Port 2222
@@ -63,12 +68,15 @@ jobs:
           KbdInteractiveAuthentication no
           PermitRootLogin no
           AllowUsers runner
-          AuthorizedKeysFile .ssh/authorized_keys
+          AuthorizedKeysFile /home/runner/.ssh/authorized_keys
+          StrictModes yes
+          LogLevel VERBOSE
           PidFile /tmp/rod-sshd.pid
           Subsystem sftp internal-sftp
           EOF
           sudo sshd -t -f /tmp/rod-sshd.conf
-          sudo /usr/sbin/sshd -f /tmp/rod-sshd.conf
+          sudo /usr/sbin/sshd -E /tmp/rod-sshd.log -f /tmp/rod-sshd.conf
+          sudo sshd -T -f /tmp/rod-sshd.conf -C user=runner,host=localhost,addr=127.0.0.1 | grep -E '^(authorizedkeysfile|pubkeyauthentication|passwordauthentication|strictmodes|allowusers) ' || true
           echo "SSH daemon listening on loopback only, port 2222"
       - name: Connect to tailnet and publish private SSH port
         shell: bash
@@ -103,7 +111,13 @@ jobs:
         shell: bash
         run: |
           echo "Session open for $SESSION_MINUTES minutes. Cancel the job to disconnect early."
-          sleep "$((SESSION_MINUTES * 60))"
+          end=$((SECONDS + SESSION_MINUTES * 60))
+          while (( SECONDS < end )); do
+            sleep 15
+            if [[ -f /tmp/rod-sshd.log ]]; then
+              sudo tail -n 30 /tmp/rod-sshd.log | grep -E 'Failed publickey|Accepted publickey|Authentication refused|bad ownership|Could not open|not allowed|Connection closed|Invalid user' | tail -n 10 || true
+            fi
+          done
       - name: Save persistent workspace
         if: always()
         uses: actions/cache/save@v4
