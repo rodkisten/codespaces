@@ -120,4 +120,3 @@ func isTerminal(w io.Writer) bool {
 	return e == nil && (s.Mode()&os.ModeCharDevice) != 0
 }
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
-
