@@ -14,6 +14,12 @@ import (
 )
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "tools" {
+		for _, spec := range rodlog.ToolInventory() {
+			fmt.Fprintf(stdout, "%s\t%s\t%s\n", spec.Tool, spec.Commands[0], spec.Description)
+		}
+		return 0
+	}
 	if len(args) > 0 && args[0] == "version" {
 		fmt.Fprintln(stdout, "rodlog v0.1.0-dev")
 		return 0
@@ -70,6 +76,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(argv) == 0 {
 		fmt.Fprintln(stderr, "usage: rodlog exec [flags] -- COMMAND [ARGS...]")
 		return 2
+	}
+	if *tool == "auto" {
+		if detected := rodlog.DetectCommand(argv); detected != rodlog.Generic {
+			engine.Options.Tool = detected
+		}
 	}
 	if *jsonOutput {
 		argv, _ = rodlog.JSONCommand(argv)

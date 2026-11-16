@@ -161,3 +161,17 @@ rodlog exec --tool=typescript --output=github -- npm run typecheck
 ```
 
 The GitHub annotation format is designed for GitHub Actions log processing. In local terminals, prefer the default renderer. `--output=github` deliberately omits unrecognized lines.
+
+## Automatic command detection
+
+`rodlog tools` prints the built-in executable inventory. `rodlog exec -- gcloud run services list` selects the gcloud adapter before reading any output; explicit `--tool` overrides detection. Unknown commands fall back to generic output. `--mode=transform --color=always` renders recognized diagnostics with a compact, colored heading.
+
+Optional Bash/Zsh wrapping (external executables only, existing aliases/functions preserved):
+
+```sh
+export RODLOG_WRAP_COMMANDS=gcloud,docker,npm
+source "$HOME/.config/rodlog/hook.sh"
+gcloud run services list
+```
+
+Shell functions requiring current-shell state are not safe to execute through subprocess wrappers. Use `rlog` explicitly for external programs. Automatic wrapping is disabled by default.

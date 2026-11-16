@@ -163,6 +163,9 @@ func Render(ev Event, opts Options) []byte {
 		return []byte(ev.Text)
 	}
 	text := ev.Text
+	if ev.Diagnostic != nil && opts.Mode == Transform && !ansi.MatchString(text) {
+		return renderDiagnostic(ev.Diagnostic)
+	}
 	if ansi.MatchString(text) {
 		return []byte(text)
 	}
