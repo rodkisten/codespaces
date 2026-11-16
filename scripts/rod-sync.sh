@@ -72,11 +72,16 @@ sync_now() {
   install -m 600 "$source_file" "$dir/$target"
   git -C "$dir" add -- "$target"
   if git -C "$dir" diff --cached --quiet; then
-    log SKIP "No changes"
+    log SKIP "No new file changes; checking pending commits"
+  else
+    log RUN "git commit $target"
+    git -C "$dir" commit -qm "chore(zsh): sync personal shell settings" || fail "Commit failed"
+  fi
+  git -C "$dir" fetch -q origin "$branch" || fail "Fetch failed"
+  if [[ "$(git -C "$dir" rev-parse HEAD)" == "$(git -C "$dir" rev-parse "origin/$branch")" ]]; then
+    log SKIP "Remote already up to date"
     return
   fi
-  log RUN "git commit $target"
-  git -C "$dir" commit -qm "chore(zsh): sync personal shell settings" || fail "Commit failed"
   log RUN "git push origin $branch"
   if git -C "$dir" push -q origin "HEAD:$branch"; then
     log OK "Synced to $remote/$branch"
