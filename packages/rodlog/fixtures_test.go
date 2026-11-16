@@ -34,7 +34,7 @@ func TestToolFixtures(t *testing.T) {
 			if !bytes.Equal(input, out.Bytes()) {
 				t.Fatal("fixture text changed")
 			}
-			if got := Detect(strings.Split(string(input), "\n")[0]); got != tc.tool {
+			if got := Detect(string(input)); got != tc.tool {
 				t.Fatalf("detect %s, want %s", got, tc.tool)
 			}
 			if tc.level == Error && !strings.Contains(string(input), "ERROR") && !strings.Contains(string(input), "error") && !strings.Contains(string(input), "ERR!") {
