@@ -50,7 +50,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: 📦 Publish main build artifacts
     needs: test
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -80,3 +79,44 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 90
+
+      - name: 🌐 Publish binaries to rodkisten.github.io
+        env:
+          PAGES_TOKEN: ${{ secrets.RODLOG_PAGES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PAGES_TOKEN" ]; then
+            echo "::error::Configure RODLOG_PAGES_TOKEN with Contents:write access to rodkisten/rodkisten.github.io"
+            exit 1
+          fi
+          git clone --depth 1 --branch master \
+            "https://x-access-token:${PAGES_TOKEN}@github.com/rodkisten/rodkisten.github.io.git" site
+          mkdir -p site/rodlog/releases
+          cp dist/rodlog_* dist/checksums.txt site/rodlog/releases/
+          cat > site/rodlog/releases/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>rodlog releases</title>
+          <h1>🌈 rodlog · Downloads</h1>
+          <p>Latest successful main build. SHA-256 checksums are available below.</p>
+          <ul>
+            <li><a href="rodlog_linux_amd64">Linux AMD64</a></li>
+            <li><a href="rodlog_linux_arm64">Linux ARM64</a></li>
+            <li><a href="rodlog_darwin_amd64">macOS AMD64</a></li>
+            <li><a href="rodlog_darwin_arm64">macOS ARM64</a></li>
+            <li><a href="checksums.txt">SHA-256 checksums</a></li>
+          </ul>
+          </html>
+          HTML
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rodlog/releases
+          if git diff --cached --quiet; then
+            echo "No release files changed"
+          else
+            git commit -m "chore(rodlog): publish binaries from codespaces main"
+            git push origin HEAD:master
+          fi
