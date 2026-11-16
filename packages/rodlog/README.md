@@ -181,3 +181,7 @@ Shell functions requiring current-shell state are not safe to execute through su
 Run `bash scripts/test-shell-hook.sh` to validate executable wrapping, argument forwarding, exit codes, opt-in behavior, and preservation of existing aliases/functions. Wrapping resolves the external executable path **before** installing a shell function to avoid accidental recursion. Only the built-in allowlist is accepted.
 
 Aliases and shell functions are intentionally **not** overridden. To run an alias or shell function with shell-local state, invoke it normally; to enhance an external command, use `rlog COMMAND ...`. Automatic alias expansion and arbitrary function interception would require shell-specific evaluation and are not enabled.
+
+## Shell semantic AST
+
+`AnalyzeShell(source, dialect)` uses the maintained Go parser `mvdan.cc/sh/v3/syntax` to build a real Bash/POSIX/mksh AST. It returns literal command invocations with source line/column, arguments and matched tool inventory entries. Shell expansions are not executed or guessed. Zsh is explicitly rejected rather than silently interpreted as Bash because this parser does not implement full Zsh grammar. The next integration step will connect the AST to an interactive shell-aware command hook and diagnostic frames.
