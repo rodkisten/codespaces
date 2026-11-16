@@ -260,7 +260,11 @@ jobs:
           SSH_SYNC_TOKEN: ${{ steps.bot.outputs.token }}
         shell: bash
         run: |
+          mkdir -p "$HOME/.local/state/rod-ssh-sync"
+          chmod 700 "$HOME/.local/state/rod-ssh-sync"
           if [[ -n "${SSH_SYNC_TOKEN:-}" ]]; then
+            printf %s "$SSH_SYNC_TOKEN" > "$HOME/.local/state/rod-ssh-sync/token"
+            chmod 600 "$HOME/.local/state/rod-ssh-sync/token"
             bash scripts/rod-sync.sh init
           else
             echo "::warning::SSH_SYNC_TOKEN not configured; remote synchronization is disabled"
@@ -270,7 +274,8 @@ jobs:
           chmod 700 "$HOME/.local/bin/rod-sync"
       - name: Keep SSH available
         env:
-          SSH_SYNC_TOKEN: ${{ steps.bot.outputs.token }}
+          BOT_APP_ID: ${{ vars.BOT_APP_ID }}
+          BOT_PRIVATE_KEY: ${{ secrets.BOT_PRIVATE_KEY }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -288,15 +293,22 @@ jobs:
               bash scripts/rod-sync.sh now || true
             fi
           }
+          next_sync=$((SECONDS + 60))
+          next_renew=$((SECONDS + 2400))
           trap finalize EXIT
           trap 'finalize; exit 130' INT
           trap 'finalize; exit 143' TERM
           echo "Session open for $SESSION_MINUTES minutes. Cancel the job to disconnect early."
-          echo "Snapshot every 60 seconds; final GitHub cache/artifact upload is best-effort."
+          echo "Snapshot every 60 seconds; GitHub App token renewed every 40 minutes."
           end=$((SECONDS + SESSION_MINUTES * 60))
           while (( SECONDS < end )); do
             sleep 15
-            if (( SECONDS % 60 < 15 )); then
+            if (( SECONDS >= next_renew )); then
+              bash scripts/rod-sync-token.sh || echo "::warning::GitHub App token renewal failed"
+              next_renew=$((SECONDS + 2400))
+            fi
+            if (( SECONDS >= next_sync )); then
+              next_sync=$((SECONDS + 60))
               snapshot
               if [[ -n "${SSH_SYNC_TOKEN:-}" ]]; then
                 bash scripts/rod-sync.sh now || echo "::warning::Remote sync failed; local snapshot retained"
