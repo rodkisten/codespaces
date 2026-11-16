@@ -1,0 +1,95 @@
+name: "🖥️ Terminal · Run"
+run-name: "Terminal · ${{ inputs.command }} · ${{ github.ref_name }}"
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Bash command to execute inside the published GHCR image"
+        type: string
+        required: true
+        default: "node --version && uv --version && gcloud --version"
+      tailnet:
+        description: "Connect to Tailscale before running command"
+        type: boolean
+        default: false
+      persist:
+        description: "Restore/save /workspace/data between runs (never put secrets there)"
+        type: boolean
+        default: true
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: rod-terminal-persistent
+  cancel-in-progress: false
+jobs:
+  terminal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      IMAGE: ghcr.io/rodkisten/codespaces:latest
+      TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+      ROD_COMMAND: ${{ inputs.command }}
+      ROD_TAILNET: ${{ inputs.tailnet }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore previous workspace snapshot
+        if: inputs.persist
+        uses: actions/cache/restore@v4
+        with:
+          path: .rod-workspace
+          key: terminal-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            terminal-state-
+      - name: Prepare isolated persistent workspace
+        run: |
+          mkdir -p .rod-workspace
+          chmod 700 .rod-workspace
+          echo "Workspace restored (if a previous cache exists)"
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run command in published environment
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker pull "$IMAGE"
+          # Input is passed as environment data, never interpolated into generated shell.
+          # The runner is disposable. Only /workspace/data is persisted.
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --workdir /workspace \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace" \
+            --env HOME=/tmp/rod-home \
+            --env XDG_STATE_HOME=/tmp/rod-home/.local/state \
+            --env ROD_COMMAND \
+            --env ROD_TAILNET \
+            --env TAILSCALE_AUTHKEY \
+            --entrypoint /bin/bash "$IMAGE" -c '
+              set -Eeuo pipefail
+              mkdir -p "$HOME" /workspace/.rod-workspace
+              if [[ "$ROD_TAILNET" == "true" ]]; then
+                [[ -n "${TAILSCALE_AUTHKEY:-}" ]] || { echo "::error::Configure TAILSCALE_AUTHKEY as Actions secret"; exit 1; }
+                bash /workspace/scripts/tailscale.sh auto
+                bash /workspace/scripts/tailscale.sh ip
+              fi
+              cd /workspace/.rod-workspace
+              bash -eo pipefail -c "$ROD_COMMAND"
+            '
+      - name: Save workspace snapshot for next run
+        if: always() && inputs.persist
+        uses: actions/cache/save@v4
+        with:
+          path: .rod-workspace
+          key: terminal-state-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload execution workspace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-workspace-${{ github.run_id }}
+          path: .rod-workspace/
+          if-no-files-found: ignore
+          retention-days: 3
