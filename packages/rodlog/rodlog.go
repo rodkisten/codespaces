@@ -38,7 +38,7 @@ func Detect(s string) Tool {
 func Classify(s string) Level {
  lower:=strings.ToLower(ansi.ReplaceAllString(s,""))
  switch {
- case strings.Contains(lower,"error"),strings.Contains(lower,"failed"),strings.Contains(lower,"fatal"),strings.Contains(lower,"✘"): return Error
+ case strings.Contains(lower,"error"),strings.Contains(lower,"npm err!"),strings.Contains(lower,"failed"),strings.Contains(lower,"fatal"),strings.Contains(lower,"✘"): return Error
  case strings.Contains(lower,"warn"),strings.Contains(lower,"deprecated"): return Warning
  case strings.Contains(lower,"success"),strings.Contains(lower,"done"),strings.Contains(lower,"✔"),strings.Contains(lower,"✓"): return Success
  default:return Info

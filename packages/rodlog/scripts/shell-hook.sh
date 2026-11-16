@@ -1,11 +1,5 @@
 #!/bin/sh
-# Source this file from Bash or Zsh, or evaluate its output.
-rlog() {
-  rodlog exec -- "$@"
-}
-rlog-raw() {
-  rodlog exec --mode raw -- "$@"
-}
-rlog-color() {
-  rodlog exec --color always -- "$@"
-}
+# rodlog hook. Compatible with bash and zsh when sourced.
+rlog() { rodlog exec -- "$@"; }
+rlog-raw() { rodlog exec --mode raw -- "$@"; }
+rlog-color() { rodlog exec --color always -- "$@"; }

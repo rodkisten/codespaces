@@ -1,0 +1,1 @@
+docker build .\n=> [1/3] FROM node:22\nexporting layers\n

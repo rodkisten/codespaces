@@ -66,3 +66,35 @@ See `scripts/install.sh` and `scripts/shell-hook.sh`. Install from a reviewed pi
 - [ ] Reproducible release verification and signed provenance
 
 💜 Built for terminal-first workflows and mobile Codespaces.
+
+## 🪝 Install with curl or wget
+
+After publishing the first GitHub release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/packages/rodlog/scripts/install.sh | sh
+# Or:
+wget -qO- https://raw.githubusercontent.com/rodkisten/codespaces/main/packages/rodlog/scripts/install.sh | sh
+```
+
+To install the **Bash and Zsh hook**:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/packages/rodlog/scripts/install.sh | RODLOG_INSTALL_HOOK=both sh
+```
+
+Use `RODLOG_INSTALL_HOOK=bash` or `zsh` for one shell. Hooks add only a guarded source line to your existing rc file, without overwriting its contents. The helper exposes `rlog`, `rlog-raw` and `rlog-color`. Remove that line and `~/.config/rodlog/hook.sh` to uninstall the hook.
+
+**Security:** a release checksum protects against accidental corruption but is not a signature. Inspect remote shell scripts before executing. The hook download defaults to main and should be pinned to a trusted ref in production.
+
+## 🎬 Five quick demos
+
+```bash
+rodlog exec -- npm run build
+rodlog exec -- npx tsc --noEmit
+rodlog exec -- gcloud run services list
+rodlog exec -- npx wrangler deploy --dry-run
+rodlog exec -- docker build .
+```
+
+For safe demonstrations without invoking cloud services, run `go test -v ./...` or pipe the fixture files under `testdata/`.
