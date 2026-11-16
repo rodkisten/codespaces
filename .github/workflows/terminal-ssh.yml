@@ -121,6 +121,34 @@ jobs:
           echo 'Actual Tailscale device name (check for numeric suffixes):' >> "$GITHUB_STEP_SUMMARY"
           tailscale --socket="$TS_SOCKET" status --json | jq -r '.Self.DNSName // .Self.HostName // "unknown"' | tee -a "$GITHUB_STEP_SUMMARY"
           echo "::notice::SSH is available only while this workflow runs. Check the job summary for its tailnet IP."
+      - name: Initialize Rod shell environment
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zsh git fzf micro zoxide
+          export CODESPACE_VSCODE_FOLDER="$GITHUB_WORKSPACE"
+          # Existing bootstrap was only wired to devcontainer lifecycle hooks.
+          # Run it explicitly on this standalone SSH runner.
+          bash scripts/bootstrap.sh start
+          mkdir -p "$HOME/.oh-my-zsh/custom/plugins" "$HOME/.oh-my-zsh/custom/themes"
+          if [[ ! -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]]; then
+            git clone -q --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
+          fi
+          for entry in 'zsh-autosuggestions:zsh-users/zsh-autosuggestions' 'zsh-completions:zsh-users/zsh-completions' 'zsh-syntax-highlighting:zsh-users/zsh-syntax-highlighting'; do
+            plugin="${entry%%:*}"
+            source="${entry#*:}"
+            if [[ ! -d "$HOME/.oh-my-zsh/custom/plugins/$plugin" ]]; then
+              git clone -q --depth=1 "https://github.com/$source.git" "$HOME/.oh-my-zsh/custom/plugins/$plugin"
+            fi
+          done
+          cp zsh/rod-mobile.zsh-theme "$HOME/.oh-my-zsh/custom/themes/rod-mobile.zsh-theme"
+          sudo chsh -s /usr/bin/zsh runner
+          # zsh compinit refuses group-writable plugin directories; inspect and
+          # correct only the directories installed for this ephemeral runner.
+          chmod -R go-w "$HOME/.oh-my-zsh/custom"
+          zsh -n "$HOME/.zshrc"
+          echo "Rod shell initialized for future SSH sessions"
       - name: Keep SSH available
         shell: bash
         run: |
