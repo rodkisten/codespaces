@@ -27,7 +27,7 @@ fi
 if [[ "$phase" == create || "$phase" == start ]]; then
   repo="${CODESPACE_VSCODE_FOLDER:-$PWD}"
   if [[ -f "$repo/scripts/tailscale.sh" ]]; then
-    bash "$repo/scripts/tailscale.sh" start || echo "WARN: Tailscale userspace daemon failed to start"
+    bash "$repo/scripts/tailscale.sh" auto || echo "WARN: Tailscale daemon or authentication unavailable"
   fi
 fi
 if [[ "$phase" == create || "$phase" == start ]]; then
