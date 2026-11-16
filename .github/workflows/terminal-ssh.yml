@@ -20,6 +20,7 @@ jobs:
     env:
       TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
       SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
+      SSH_SYNC_TOKEN: ${{ secrets.SSH_SYNC_TOKEN }}
       SESSION_MINUTES: ${{ inputs.minutes }}
       TAILSCALE_HOSTNAME: rod-terminal
     steps:
@@ -246,6 +247,16 @@ jobs:
           fi
           printf '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
           echo "Rod shell setup completed"
+      - name: Initialize remote personal shell sync
+        shell: bash
+        run: |
+          if [[ -n "${SSH_SYNC_TOKEN:-}" ]]; then
+            bash scripts/rod-sync.sh init
+          else
+            echo "::warning::SSH_SYNC_TOKEN not configured; remote synchronization is disabled"
+          fi
+          mkdir -p "$HOME/.local/bin"
+          ln -sfn "$GITHUB_WORKSPACE/scripts/rod-sync.sh" "$HOME/.local/bin/rod-sync"
       - name: Keep SSH available
         shell: bash
         run: |
@@ -258,13 +269,26 @@ jobs:
               echo "[SKIP] ~/.zshrc.local missing"
             fi
           }
-          trap 'snapshot || true' EXIT INT TERM
+          finalize() {
+            snapshot || true
+            if [[ -n "${SSH_SYNC_TOKEN:-}" ]]; then
+              bash scripts/rod-sync.sh now || true
+            fi
+          }
+          trap finalize EXIT
+          trap 'finalize; exit 130' INT
+          trap 'finalize; exit 143' TERM
           echo "Session open for $SESSION_MINUTES minutes. Cancel the job to disconnect early."
           echo "Snapshot every 60 seconds; final GitHub cache/artifact upload is best-effort."
           end=$((SECONDS + SESSION_MINUTES * 60))
           while (( SECONDS < end )); do
             sleep 15
-            if (( SECONDS % 60 < 15 )); then snapshot; fi
+            if (( SECONDS % 60 < 15 )); then
+              snapshot
+              if [[ -n "${SSH_SYNC_TOKEN:-}" ]]; then
+                bash scripts/rod-sync.sh now || echo "::warning::Remote sync failed; local snapshot retained"
+              fi
+            fi
             if [[ -f /tmp/rod-sshd.log ]]; then
               sudo tail -n 30 /tmp/rod-sshd.log | grep -E 'Failed publickey|Accepted publickey|Authentication refused|bad ownership|Could not open|not allowed|Connection closed|Invalid user' | tail -n 10 || true
             fi
@@ -279,6 +303,15 @@ jobs:
             echo "[OK] Final ~/.zshrc.local snapshot"
           else
             echo "[SKIP] No personal Zsh configuration"
+          fi
+      - name: Final remote personal shell sync
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SSH_SYNC_TOKEN:-}" && -f scripts/rod-sync.sh ]]; then
+            bash scripts/rod-sync.sh now || echo "::warning::Final remote sync failed"
+          else
+            echo "[SKIP] Remote sync unavailable"
           fi
       - name: Save persistent workspace
         if: always()
