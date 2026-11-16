@@ -21,7 +21,10 @@ start_daemon() {
   nohup tailscaled --tun=userspace-networking --socket="$socket" --state="$state" >>"$log" 2>&1 </dev/null &
   local i
   for i in {1..40}; do
-    [[ -S "$socket" ]] && { echo "Tailscale userspace daemon ready"; return 0; }
+    if daemon_running; then
+      echo "Tailscale userspace daemon ready"
+      return 0
+    fi
     sleep 0.25
   done
   echo "Tailscale failed to start; inspect $log" >&2
@@ -46,15 +49,35 @@ auto_login() {
   trap 'rm -f "$key_file"' RETURN
   printf '%s' "$TAILSCALE_AUTHKEY" >"$key_file"
   # file: avoids exposing the key in argv and logs.
-  if tailscale --socket="$socket" up --auth-key="file:$key_file" >/dev/null 2>&1; then
+  if timeout 45 tailscale --socket="$socket" up --auth-key="file:$key_file" >/dev/null 2>&1 && is_connected; then
     echo "Tailscale authenticated via Codespaces secret"
   else
     echo "WARN: Tailscale authentication failed (key may be expired or invalid)" >&2
     return 1
   fi
 }
+doctor() {
+  printf 'Tailscale userspace diagnostic\\n'
+  command -v tailscale >/dev/null || { echo "ERROR: tailscale CLI missing"; return 1; }
+  command -v tailscaled >/dev/null || { echo "ERROR: tailscaled missing"; return 1; }
+  if ! daemon_running; then
+    echo "ERROR: daemon unavailable"
+    echo "Log: $log"
+    return 1
+  fi
+  echo "Daemon: running"
+  if is_connected; then
+    echo "Tailnet: connected"
+    tailscale --socket="$socket" ip -4 || true
+  else
+    echo "Tailnet: disconnected or login required"
+    [[ -n "${TAILSCALE_AUTHKEY:-}" ]] && echo "Codespaces auth secret: present" || echo "Codespaces auth secret: missing"
+    return 1
+  fi
+}
 case "${1:-start}" in
   auto) auto_login ;;
+  doctor) doctor ;;
   start) start_daemon ;;
   up)
     start_daemon
@@ -74,7 +97,7 @@ case "${1:-start}" in
     ;;
   logs) tail -n 80 "$log" ;;
   *)
-    echo "Usage: $0 {start|up|status|ip|ping HOST|logs}" >&2
+    echo "Usage: $0 {start|auto|up|status|ip|ping HOST|doctor|logs}" >&2
     exit 2
     ;;
 esac
