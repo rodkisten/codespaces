@@ -105,8 +105,11 @@ func New(opts Options) *Engine {
 	return &Engine{Options: opts}
 }
 
-// Process preserves input order and delimiters, including CR progress updates.
-// In raw mode it copies bytes unchanged. Renderer errors fall back to original bytes.
+// Process consumes command output incrementally, preserving its original order.
+// Raw mode copies bytes exactly. In other modes, each line is classified and
+// optionally parsed into a structured diagnostic before being rendered.
+// A renderer failure falls back to the original bytes, never hiding errors.
+// Colored Transform mode deduplicates diagnostics and summarizes them at EOF.
 func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) error {
 	if e.Options.Mode == Raw {
 		_, err := io.Copy(dst, src)
@@ -199,6 +202,9 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 		}
 	}
 }
+// Render applies presentation to a single event. Existing ANSI sequences win
+// over our palette; unrecognized output is preserved rather than rewritten.
+// Transform may replace recognized diagnostics with structured error cards.
 func Render(ev Event, opts Options) []byte {
 	if opts.Mode == Raw || !opts.Color {
 		return []byte(ev.Text)
@@ -234,9 +240,7 @@ func Render(ev Event, opts Options) []byte {
 		color = "33"
 	case Success:
 		color = "32"
-	default:
-		
-	}
+		}
 	if color == "" {
 		return []byte(text)
 	}
