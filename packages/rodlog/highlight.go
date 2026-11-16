@@ -20,13 +20,13 @@ type highlightSpan struct {
 }
 
 var diagnosticRules = []highlightRule{
-	{regexp.MustCompile(`\bTS[0-9]{4,5}\b`), "1;35", 10},
-	{regexp.MustCompile(`(?:[[:alnum:]_./-]+)\.(?:tsx?|jsx?|py|go|json|yaml|yml):[0-9]+(?::[0-9]+)?`), "4;36", 9},
+	{regexp.MustCompile(`\bTS[0-9]{4,5}\b`), "35", 10},
+	{regexp.MustCompile(`(?:[[:alnum:]_./-]+)\.(?:tsx?|jsx?|py|go|json|yaml|yml):[0-9]+(?::[0-9]+)?`), "36", 9},
 	{regexp.MustCompile(`(?:[[:alnum:]_./-]+)\.(?:tsx?|jsx?|py|go)\([0-9]+,[0-9]+\)`), "4;36", 9},
-	{regexp.MustCompile(`\\b(?:ERROR|Error|error|FAILED|Failed|failed)\\b|ERR!`), "1;31", 8},
-	{regexp.MustCompile(`\b(?:WARN|WARNING|Warning|warning|deprecated)\b`), "1;33", 7},
-	{regexp.MustCompile(`\b(?:SUCCESS|Success|success|DONE|Done|done)\b`), "1;32", 6},
-	{regexp.MustCompile(`\b(?:npm|npx|gcloud|wrangler|docker|tsc)\b`), "1;34", 2},
+	{regexp.MustCompile(`\b(?:ERROR|Error|error|FAILED|Failed|failed)\b|ERR!`), "31", 8},
+	{regexp.MustCompile(`\b(?:WARN|WARNING|Warning|warning|deprecated)\b`), "33", 7},
+	{regexp.MustCompile(`\b(?:SUCCESS|Success|success|DONE|Done|done)\b`), "32", 6},
+	{regexp.MustCompile(`\b(?:npm|npx|gcloud|wrangler|docker|tsc)\b`), "2", 2},
 }
 
 func highlightLine(s string) string {

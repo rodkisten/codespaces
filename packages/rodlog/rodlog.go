@@ -235,9 +235,7 @@ func Render(ev Event, opts Options) []byte {
 	case Success:
 		color = "32"
 	default:
-		if opts.Mode == Transform && ev.Tool != Generic {
-			color = "36"
-		}
+		
 	}
 	if color == "" {
 		return []byte(text)
