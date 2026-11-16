@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Fast Tailscale smoke or full devcontainer build"
+        description: "Fast Tailscale smoke or build/publish reusable devcontainer image"
         type: choice
         options: [smoke, build]
         default: smoke
@@ -73,15 +73,41 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Build devcontainer image with persistent layer cache
+      - name: Authenticate to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Derive image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=long,prefix=sha-
+      - name: Build and publish reusable devcontainer image
         uses: docker/build-push-action@v6
         with:
-          context: .devcontainer
+          # Dockerfile COPY paths refer to the repository root, not .devcontainer.
+          context: .
           file: .devcontainer/Dockerfile
-          push: false
-          tags: rod-codespaces:smoke
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=rod-codespaces
           cache-to: type=gha,mode=max,scope=rod-codespaces
+      - name: Verify published image
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+        run: |
+          docker pull "$IMAGE"
+          docker run --rm --entrypoint /bin/bash "$IMAGE" -lc 'command -v tailscale && command -v node && command -v uv && command -v gcloud && command -v zsh'
+          echo "Published and verified: $IMAGE"
+
