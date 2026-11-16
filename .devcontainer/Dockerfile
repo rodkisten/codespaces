@@ -20,9 +20,9 @@ COPY --from=uv-dist /uv /uvx /usr/local/bin/
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      zsh nano micro vim git gh curl ca-certificates gnupg \
+      zsh nano micro vim git gh curl wget gawk ca-certificates gnupg \
       less man-db manpages procps psmisc lsof tree unzip zip \
-      make build-essential pkg-config \
+      make build-essential pkg-config golang-go docker.io \
       jq sqlite3 fzf ripgrep fd-find bat eza zoxide \
       shellcheck openssh-client rsync; \
     rm -rf /var/lib/apt/lists/*
@@ -44,6 +44,15 @@ RUN set -eux; \
     npm install --global --no-audit --no-fund \
       wrangler@latest pnpm@latest prettier@latest typescript@latest tsx@latest; \
     npm cache clean --force
+
+# nvm is installed for optional per-project Node versions; system Node stays default.
+ENV NVM_DIR=/home/vscode/.nvm
+RUN set -eux; \
+    mkdir -p "$NVM_DIR"; \
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh -o /tmp/install-nvm.sh; \
+    chown -R "$USERNAME:$USERNAME" "$NVM_DIR"; \
+    su "$USERNAME" -s /bin/bash -c 'PROFILE=/dev/null bash /tmp/install-nvm.sh'; \
+    rm -f /tmp/install-nvm.sh
 
 # The base image ALREADY includes Oh My Zsh, so do not install it twice.
 RUN set -eux; \
