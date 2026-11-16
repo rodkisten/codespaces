@@ -125,30 +125,113 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq zsh git fzf micro zoxide
-          export CODESPACE_VSCODE_FOLDER="$GITHUB_WORKSPACE"
-          # Existing bootstrap was only wired to devcontainer lifecycle hooks.
-          # Run it explicitly on this standalone SSH runner.
-          bash scripts/bootstrap.sh start
-          mkdir -p "$HOME/.oh-my-zsh/custom/plugins" "$HOME/.oh-my-zsh/custom/themes"
-          if [[ ! -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]]; then
-            git clone -q --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
-          fi
-          for entry in 'zsh-autosuggestions:zsh-users/zsh-autosuggestions' 'zsh-completions:zsh-users/zsh-completions' 'zsh-syntax-highlighting:zsh-users/zsh-syntax-highlighting'; do
-            plugin="${entry%%:*}"
-            source="${entry#*:}"
-            if [[ ! -d "$HOME/.oh-my-zsh/custom/plugins/$plugin" ]]; then
-              git clone -q --depth=1 "https://github.com/$source.git" "$HOME/.oh-my-zsh/custom/plugins/$plugin"
+          # Log each planned operation; skip already-satisfied prerequisites.
+          # Never echo secrets or run with shell xtrace enabled.
+          step=0
+          run_step() {
+            local label="$1"
+            shift
+            step=$((step + 1))
+            printf '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+            printf '[%02d] RUN  %s\n' "$step" "$label"
+            printf '     Command:'
+            printf ' %q' "$@"
+            printf '\n'
+            if "$@"; then
+              printf '[%02d] OK   %s\n' "$step" "$label"
+            else
+              local rc=$?
+              printf '::error::[%02d] FAIL %s (exit %d)\n' "$step" "$label" "$rc"
+              return "$rc"
             fi
-          done
-          cp zsh/rod-mobile.zsh-theme "$HOME/.oh-my-zsh/custom/themes/rod-mobile.zsh-theme"
-          sudo chsh -s /usr/bin/zsh runner
-          # zsh compinit refuses group-writable plugin directories; inspect and
-          # correct only the directories installed for this ephemeral runner.
-          chmod -R go-w "$HOME/.oh-my-zsh/custom"
-          zsh -n "$HOME/.zshrc"
-          echo "Rod shell initialized for future SSH sessions"
+          }
+          skip_step() {
+            step=$((step + 1))
+            printf '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+            printf '[%02d] SKIP %s: %s\n' "$step" "$1" "$2"
+          }
+          install_missing_packages() {
+            local missing=() name
+            for name in zsh git fzf micro zoxide; do
+              if command -v "$name" >/dev/null 2>&1; then
+                skip_step "Install $name" "command already available at $(command -v "$name")"
+              else
+                missing+=("$name")
+              fi
+            done
+            if (( ${#missing[@]} )); then
+              run_step "Refresh apt package index" sudo apt-get update -qq
+              run_step "Install missing shell packages" sudo apt-get install -y -qq "${missing[@]}"
+            else
+              skip_step "APT installation" "all commands already exist"
+            fi
+          }
+          install_omz() {
+            local dest="$HOME/.oh-my-zsh"
+            if [[ -f "$dest/oh-my-zsh.sh" ]]; then
+              skip_step "Oh My Zsh" "$dest/oh-my-zsh.sh exists"
+              return
+            fi
+            if [[ -d "$dest" ]] && [[ -n "$(ls -A "$dest")" ]]; then
+              # Preserve existing user files. Clone to an empty temporary dir
+              # and copy only missing files into the pre-existing directory.
+              local temp
+              temp="$(mktemp -d)"
+              run_step "Clone Oh My Zsh to temporary directory" git clone -q --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$temp/oh-my-zsh"
+              run_step "Merge missing Oh My Zsh files" cp -an "$temp/oh-my-zsh/." "$dest/"
+              rm -rf "$temp"
+            else
+              [[ -d "$dest" ]] && rmdir "$dest"
+              run_step "Clone Oh My Zsh" git clone -q --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$dest"
+            fi
+            [[ -f "$dest/oh-my-zsh.sh" ]] || { echo "::error::Oh My Zsh entrypoint missing"; return 1; }
+          }
+          install_plugin() {
+            local name="$1" source="$2" dest="$HOME/.oh-my-zsh/custom/plugins/$1"
+            if [[ -d "$dest" ]]; then
+              skip_step "Plugin $name" "$dest already exists"
+            else
+              run_step "Install plugin $name" git clone -q --depth=1 "https://github.com/$source.git" "$dest"
+            fi
+          }
+          install_missing_packages
+          export CODESPACE_VSCODE_FOLDER="$GITHUB_WORKSPACE"
+          if [[ -f scripts/bootstrap.sh ]]; then
+            run_step "Run existing bootstrap" bash scripts/bootstrap.sh start
+          else
+            skip_step "Bootstrap" "scripts/bootstrap.sh missing"
+          fi
+          if command -v git >/dev/null 2>&1; then
+            install_omz
+            mkdir -p "$HOME/.oh-my-zsh/custom/plugins" "$HOME/.oh-my-zsh/custom/themes"
+            install_plugin zsh-autosuggestions zsh-users/zsh-autosuggestions
+            install_plugin zsh-completions zsh-users/zsh-completions
+            install_plugin zsh-syntax-highlighting zsh-users/zsh-syntax-highlighting
+          else
+            skip_step "Oh My Zsh and plugins" "git unavailable"
+          fi
+          if [[ -f zsh/rod-mobile.zsh-theme && -d "$HOME/.oh-my-zsh/custom/themes" ]]; then
+            run_step "Install Rod theme" cp zsh/rod-mobile.zsh-theme "$HOME/.oh-my-zsh/custom/themes/rod-mobile.zsh-theme"
+          else
+            skip_step "Rod theme" "source or destination directory missing"
+          fi
+          if command -v zsh >/dev/null 2>&1; then
+            if [[ "$(getent passwd runner | cut -d: -f7)" == "$(command -v zsh)" ]]; then
+              skip_step "Default shell" "runner already uses zsh"
+            else
+              run_step "Set default shell" sudo chsh -s "$(command -v zsh)" runner
+            fi
+            [[ -d "$HOME/.oh-my-zsh/custom" ]] && run_step "Secure Zsh plugin permissions" chmod -R go-w "$HOME/.oh-my-zsh/custom"
+            if [[ -f "$HOME/.zshrc" ]]; then
+              run_step "Validate Zsh configuration" zsh -n "$HOME/.zshrc"
+            else
+              skip_step "Zsh validation" "~/.zshrc missing"
+            fi
+          else
+            skip_step "Zsh configuration" "zsh command unavailable"
+          fi
+          printf '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+          echo "Rod shell setup completed"
       - name: Keep SSH available
         shell: bash
         run: |
