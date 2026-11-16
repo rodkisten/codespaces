@@ -11,9 +11,9 @@ import (
 
 func TestExtendedLogFixtures(t *testing.T) {
 	type fixtureCase struct {
-		name	string
-		tool	Tool
-		want	string
+		name string
+		tool Tool
+		want string
 	}
 	cases := []fixtureCase{
 		{"typescript", TypeScript, "TS2322"},
