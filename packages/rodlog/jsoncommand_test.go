@@ -8,7 +8,7 @@ import (
 func TestJSONCommandAllowlist(t *testing.T) {
 	for _, tc := range []struct {
 		command []string
-		want bool
+		want    bool
 	}{
 		{[]string{"npm", "outdated"}, true},
 		{[]string{"npm", "audit"}, true},
