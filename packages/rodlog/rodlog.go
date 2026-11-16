@@ -42,9 +42,9 @@ const (
 type Event struct {
 	Diagnostic *Diagnostic
 	Sequence   uint64
-	Tool     Tool
-	Level    Level
-	Text     string
+	Tool       Tool
+	Level      Level
+	Text       string
 }
 type Options struct {
 	Mode    Mode
