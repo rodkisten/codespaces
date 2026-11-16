@@ -1,0 +1,55 @@
+name: 🌈 rodlog · Test & Release
+on:
+  push:
+    paths:
+      - 'packages/rodlog/**'
+      - '.github/workflows/rodlog.yml'
+  pull_request:
+    paths:
+      - 'packages/rodlog/**'
+      - '.github/workflows/rodlog.yml'
+  workflow_dispatch:
+  release:
+    types: [published]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/rodlog
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/rodlog/go.mod
+      - name: 🧪 Go tests
+        run: go test -race -v ./...
+      - name: 🔨 Build
+        run: go build ./cmd/rodlog
+  release:
+    if: github.event_name == 'release'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/rodlog/go.mod
+      - name: 📦 Cross-compile
+        run: |
+          mkdir -p dist
+          cd packages/rodlog
+          for os in linux darwin; do
+            for arch in amd64 arm64; do
+              GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "../../dist/rodlog_${os}_${arch}" ./cmd/rodlog
+            done
+          done
+          cd ../../dist
+          sha256sum rodlog_* > checksums.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
