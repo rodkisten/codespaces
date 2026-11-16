@@ -19,7 +19,7 @@ func TestExtendedLogFixtures(t *testing.T) {
 		{"typescript", TypeScript, "TS2322"},
 		{"npm", NPM, "missing script"},
 		{"gcloud", GCloud, "Permission"},
-		{"docker", Docker, "failed to solve"},
+		{"docker", Docker, "Dockerfile"},
 		{"wrangler", Wrangler, "Authentication"},
 	}
 	for _, tc := range cases {
