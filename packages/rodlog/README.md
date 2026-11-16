@@ -25,7 +25,7 @@ npm run build 2>&1 | ./rodlog --color=always
 | Mode | What it does |
 | --- | --- |
 | `enhance` | Preserves original text, adds ANSI token and severity colors |
-| `transform` | Adds tool-aware informational coloring; richer layouts planned |
+| `transform` | Renders structured diagnostic cards, source excerpts, suggestions, grouped counts and JSON tables when recognized |
 | `raw` | Copies input byte-for-byte |
 
 `--tool=auto` detects recognizable signatures. Force a tool when necessary. `--color=auto|always|never` respects `NO_COLOR` in auto mode.
@@ -52,7 +52,7 @@ See `scripts/install.sh` and `scripts/shell-hook.sh`. Install from a reviewed pi
 
 ## 🏗️ Architecture
 
-`io.Reader → streaming frames → detector → Event → renderer`. The core preserves text and falls back to original bytes on renderer errors. Current detection is conservative and line-oriented; multiline semantic diagnostics, TOML configuration, JSONL, GitHub annotations and Chroma highlighting and semantic adapters remain on the roadmap.
+`io.Reader → streaming frames → detector → Event → renderer`. The core preserves text and falls back to original bytes on renderer errors. Detection is conservative and line-oriented. Semantic adapters, Chroma highlighting, JSONL and GitHub Actions annotations are implemented; more complete multiline parsing and configuration remain future work.
 
 ## 🗺️ Roadmap
 
@@ -60,9 +60,10 @@ See `scripts/install.sh` and `scripts/shell-hook.sh`. Install from a reviewed pi
 - [x] npm, TypeScript, gcloud, Wrangler and Docker signatures
 - [x] raw/enhance/transform switches and renderer fallback
 - [x] Release workflow and shell helper
-- [ ] Rich Chroma syntax spans and multiline diagnostics
-- [ ] TOML config, semantic adapters and JSONL
-- [ ] GitHub annotations, summary and SARIF
+- [x] Chroma highlighting for confidently recognized source snippets
+- [x] Semantic adapters, JSONL and GitHub Actions annotations
+- [x] Grouped diagnostic summaries and source frames
+- [ ] Multiline diagnostic parsing, TOML config and SARIF
 - [ ] Reproducible release verification and signed provenance
 
 💜 Built for terminal-first workflows and mobile Codespaces.
@@ -101,7 +102,7 @@ For safe demonstrations without invoking cloud services, run `go test -v ./...` 
 
 ## 🎨 Token highlighting (block 3)
 
-Known diagnostics now highlight **TS error codes**, **file:line:column references**, **severity words**, and **CLI names** independently. Existing ANSI escapes are preserved without recoloring. Tests assert that removing added ANSI escapes restores the exact input, including CRLF. No Chroma dependency yet: this is a lightweight token highlighter, with language lexing planned next.
+Known diagnostics now highlight **TS error codes**, **file:line:column references**, **severity words**, and **CLI names** independently. Existing ANSI escapes are preserved without recoloring. Tests assert that removing added ANSI escapes restores the exact input, including CRLF. Chroma is used selectively for recognized source-code and structured-data snippets; ordinary logs use semantic token highlighting to avoid arbitrary colors.
 
 ```bash
 go test -race -v ./...
@@ -195,3 +196,13 @@ The five `testdata/*.log` files now contain longer **synthetic, realistic exampl
 In colored transform mode, local relative source files (up to 1 MiB) can provide a five-line diagnostic frame with a column caret. Duplicate structured diagnostics are suppressed and a final error/warning count is printed. Raw, enhance, JSONL and GitHub annotation modes retain their prior behavior. No source is read for absolute or parent-traversal paths.
 
 In colored transform mode, diagnostics are now separated into file/tool sections as their group changes during streaming. This is contiguous grouping, not reordering: interleaved output remains in its original order. The final sorted group summary is unchanged.
+
+## 🎨 Why the colors work this way
+
+The terminal palette is semantic, not a general-purpose syntax rainbow: **red** signals errors, **yellow** warnings, and **green** success. Paths, error codes and tool names receive subtler token-level treatment. Already-colored ANSI input is passed through unchanged. `raw` always preserves bytes; `enhance` preserves text while adding highlights; `transform` can produce diagnostic cards and a final grouped summary.
+
+## 🔍 Reading the source
+
+Start with [`rodlog.go`](rodlog.go) for the streaming engine and `Render` decision tree. Continue with [`semantic.go`](semantic.go) for tool-specific diagnostic extraction, [`highlight.go`](highlight.go) for prioritized non-overlapping color spans, [`syntax.go`](syntax.go) for conservative Chroma detection, and [`diagnostic_render.go`](diagnostic_render.go) for cards and source excerpts. The original text is retained in `Event.Text` even when a structured `Diagnostic` is recognized.
+
+The fixtures under `testdata/` are **synthetic representative examples**, not captured production logs. Use `go test -race ./...` to validate behavior and `go test -v -run TestOutputExamples ./...` for demonstrations.

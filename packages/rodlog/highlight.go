@@ -6,8 +6,9 @@ import (
 	"strings"
 )
 
-// Highlight applies bounded, deterministic ANSI highlighting to known diagnostic
-// tokens. Input bytes are never removed or reordered.
+// Highlight matches semantic tokens in the original line, then adds ANSI escapes.
+// Rules carry priorities so an error code or location wins over a generic CLI
+// name when spans overlap. The original characters remain in their input order.
 type highlightRule struct {
 	expression *regexp.Regexp
 	color      string
@@ -29,6 +30,9 @@ var diagnosticRules = []highlightRule{
 	{regexp.MustCompile(`\b(?:npm|npx|gcloud|wrangler|docker|tsc)\b`), "2", 2},
 }
 
+// highlightLine first collects matches, resolves overlaps, and only then writes
+// escape sequences. Matching before rendering prevents our own ANSI codes from
+// being interpreted as user content. A bounded match count limits log overhead.
 func highlightLine(s string) string {
 	if s == "" {
 		return s

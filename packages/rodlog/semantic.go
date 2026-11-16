@@ -30,8 +30,10 @@ var (
 	wranglerError  = regexp.MustCompile(`(?i)^(?:✘\s*)?(?:error|warning):\s*(.+)$`)
 )
 
-// ParseDiagnostic recognizes structured diagnostics without executing any input.
-// Unknown lines return nil and retain the existing conservative renderer.
+// ParseDiagnostic extracts stable fields from tool-specific error formats.
+// The adapter never executes or modifies the original command output: Event.Text
+// remains authoritative, while this optional record powers cards and annotations.
+// Unknown lines return nil so ordinary logs keep their original presentation.
 func ParseDiagnostic(tool Tool, input string) *Diagnostic {
 	line := strings.TrimSpace(ansi.ReplaceAllString(input, ""))
 	if line == "" {
