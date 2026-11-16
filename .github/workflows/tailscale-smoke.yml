@@ -1,0 +1,87 @@
+name: "🐉 Tailscale · smoke & image build"
+run-name: "Tailscale ${{ inputs.mode }} · ${{ github.ref_name }}"
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Fast Tailscale smoke or full devcontainer build"
+        type: choice
+        options: [smoke, build]
+        default: smoke
+      peer:
+        description: "Optional tailnet hostname or 100.x address to ping"
+        type: string
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: tailscale-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  smoke:
+    if: inputs.mode == 'smoke'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+      PEER: ${{ inputs.peer }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts
+        run: |
+          bash -n scripts/tailscale.sh scripts/private-ssh.sh scripts/bootstrap.sh
+          echo "Shell syntax OK"
+      - name: Install Tailscale on ephemeral runner
+        run: |
+          curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+          curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tailscale
+      - name: Start userspace daemon and authenticate when secret exists
+        run: |
+          bash scripts/tailscale.sh start
+          if [[ -n "${TAILSCALE_AUTHKEY:-}" ]]; then
+            timeout 60 bash scripts/tailscale.sh auto
+            bash scripts/tailscale.sh status
+            bash scripts/tailscale.sh ip
+          else
+            echo "::notice::TAILSCALE_AUTHKEY not configured as Actions secret; daemon-only smoke completed"
+          fi
+      - name: Ping optional tailnet peer
+        if: inputs.peer != ''
+        run: |
+          [[ -n "${TAILSCALE_AUTHKEY:-}" ]] || { echo "::error::TAILSCALE_AUTHKEY Actions secret required for peer ping"; exit 1; }
+          [[ "$PEER" =~ ^[a-zA-Z0-9._:-]+$ ]] || { echo "::error::Invalid peer"; exit 2; }
+          bash scripts/tailscale.sh ping "$PEER"
+      - name: Diagnostics (safe, no auth key output)
+        if: always()
+        run: |
+          if [[ -S "$HOME/.local/state/rod-codespaces/tailscale/tailscaled.sock" ]]; then
+            bash scripts/tailscale.sh status || true
+          fi
+      - name: Upload daemon logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tailscale-smoke-logs
+          path: ~/.local/state/rod-codespaces/tailscale/tailscaled.log
+          if-no-files-found: ignore
+          retention-days: 3
+  build:
+    if: inputs.mode == 'build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build devcontainer image with persistent layer cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .devcontainer
+          file: .devcontainer/Dockerfile
+          push: false
+          tags: rod-codespaces:smoke
+          cache-from: type=gha,scope=rod-codespaces
+          cache-to: type=gha,mode=max,scope=rod-codespaces
