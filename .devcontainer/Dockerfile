@@ -22,7 +22,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
       zsh nano micro vim git gh curl wget gawk ca-certificates gnupg \
       less man-db manpages procps psmisc lsof tree unzip zip \
-      make build-essential pkg-config golang-go docker.io \
+      make build-essential pkg-config golang-go docker.io python3 \
       jq sqlite3 fzf ripgrep fd-find bat eza zoxide \
       shellcheck openssh-client rsync; \
     rm -rf /var/lib/apt/lists/*
