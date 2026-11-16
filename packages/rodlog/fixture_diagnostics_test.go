@@ -51,8 +51,8 @@ func TestExtendedLogFixtures(t *testing.T) {
 
 func TestDiagnosticCards(t *testing.T) {
 	cases := []struct {
-		tool Tool
-		line string
+		tool  Tool
+		line  string
 		level Level
 	}{
 		{Wrangler, "✘ [ERROR] Authentication error [code: 10000]", Error},
