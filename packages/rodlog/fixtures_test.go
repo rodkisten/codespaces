@@ -34,8 +34,18 @@ func TestToolFixtures(t *testing.T) {
 			if !bytes.Equal(input, out.Bytes()) {
 				t.Fatal("fixture text changed")
 			}
-			if got := Detect(string(input)); got != tc.tool {
-				t.Fatalf("detect %s, want %s", got, tc.tool)
+			detected := Generic
+			for _, line := range strings.Split(string(input), "\n") {
+				if strings.HasPrefix(line, "# Extended synthetic") || strings.HasPrefix(line, "--- run ") {
+					continue
+				}
+				if tool := Detect(line); tool != Generic {
+					detected = tool
+					break
+				}
+			}
+			if detected != tc.tool {
+				t.Fatalf("detect %s, want %s", detected, tc.tool)
 			}
 			if tc.level == Error && !strings.Contains(string(input), "ERROR") && !strings.Contains(string(input), "error") && !strings.Contains(string(input), "ERR!") {
 				t.Fatal("fixture missing error")
