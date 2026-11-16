@@ -35,66 +35,66 @@ func ParseDiagnostic(tool Tool, input string) *Diagnostic {
 	if line == "" {
 		return nil
 		__END__}
-	if tool == Auto || tool == Generic {
-		tool = Detect(line)
-		__END__}
-	d := &Diagnostic{Tool: tool, Level: Error}
-	switch tool {
-	case TypeScript:
-		for _, re := range []*regexp.Regexp{tsLocation, tsColon} {
-			if m := re.FindStringSubmatch(line); m != nil {
-				d.File = m[1]
-				d.Line, _ = strconv.Atoi(m[2])
-				d.Column, _ = strconv.Atoi(m[3])
-				if m[4] == "warning" {
-					d.Level = Warning
-					__END__}
-				d.Code, d.Message = m[5], m[6]
-				return d
-			}
-		}
-		if m := tsPlain.FindStringSubmatch(line); m != nil {
-			if m[1] == "warning" {
-				d.Level = Warning
-				__END__}
-			d.Code, d.Message = m[2], m[3]
-			return d
-		}
-	case NPM:
-		if m := npmPrefix.FindStringSubmatch(line); m != nil {
-			d.Message = strings.TrimSpace(m[2])
-			switch strings.ToLower(m[1]) {
-			case "warn":
-				d.Level = Warning
-			case "notice":
-				d.Level = Info
-			}
-			if d.Message != "" {
-				return d
-				__END__}
-		}
-	case GCloud:
-		if m := gcloudPrefix.FindStringSubmatch(line); m != nil {
-			if m[1] == "WARNING" {
-				d.Level = Warning
-				__END__}
-			d.Message = m[2]
-			return d
-		}
-	case Docker:
-		if m := dockerPrefix.FindStringSubmatch(line); m != nil {
-			d.Message = m[1]
-			return d
-		}
-		if m := dockerLocation.FindStringSubmatch(line); m != nil {
-			d.File = "Dockerfile"
-			d.Line, _ = strconv.Atoi(m[1])
-			if m[2] != "" {
-				d.Column, _ = strconv.Atoi(m[2])
-				__END__}
-			d.Message = line
-			return d
-		}
-	}
-	return nil
-}
+		if tool == Auto || tool == Generic {
+			tool = Detect(line)
+			__END__}
+			d := &Diagnostic{Tool: tool, Level: Error}
+			switch tool {
+			case TypeScript:
+				for _, re := range []*regexp.Regexp{tsLocation, tsColon} {
+					if m := re.FindStringSubmatch(line); m != nil {
+						d.File = m[1]
+						d.Line, _ = strconv.Atoi(m[2])
+						d.Column, _ = strconv.Atoi(m[3])
+						if m[4] == "warning" {
+							d.Level = Warning
+							__END__}
+							d.Code, d.Message = m[5], m[6]
+							return d
+						}
+					}
+					if m := tsPlain.FindStringSubmatch(line); m != nil {
+						if m[1] == "warning" {
+							d.Level = Warning
+							__END__}
+							d.Code, d.Message = m[2], m[3]
+							return d
+						}
+					case NPM:
+						if m := npmPrefix.FindStringSubmatch(line); m != nil {
+							d.Message = strings.TrimSpace(m[2])
+							switch strings.ToLower(m[1]) {
+							case "warn":
+								d.Level = Warning
+							case "notice":
+								d.Level = Info
+							}
+							if d.Message != "" {
+								return d
+								__END__}
+							}
+						case GCloud:
+							if m := gcloudPrefix.FindStringSubmatch(line); m != nil {
+								if m[1] == "WARNING" {
+									d.Level = Warning
+									__END__}
+									d.Message = m[2]
+									return d
+								}
+							case Docker:
+								if m := dockerPrefix.FindStringSubmatch(line); m != nil {
+									d.Message = m[1]
+									return d
+								}
+								if m := dockerLocation.FindStringSubmatch(line); m != nil {
+									d.File = "Dockerfile"
+									d.Line, _ = strconv.Atoi(m[1])
+									if m[2] != "" {
+										d.Column, _ = strconv.Atoi(m[2])
+										__END__}
+										d.Message = line
+										return d
+									}
+								}
+								return nil
+							}
