@@ -128,3 +128,23 @@ bash scripts/tailscale.sh ip
 
 Se a chave expirar, substitua o secret e execute `bash scripts/tailscale.sh auto`.
 Uma auth key de registro não é a mesma coisa que uma API key.
+
+
+## Rod Check: diagnósticos compartilháveis 🔎
+
+O bootstrap instala `scripts/rod-check` como `~/.local/bin/rod-check` nos eventos `create` e `start`. O comando fica disponível em **qualquer repositório** aberto no mesmo Codespace, sem copiar o script para cada projeto. A configuração Zsh já inclui `~/.local/bin` no PATH.
+
+Para instalar imediatamente no Codespace atual, sem rebuild:
+
+```bash
+bash scripts/bootstrap.sh start
+command -v rod-check
+cd /workspaces/SEU_REPOSITORIO
+rod-check --full
+```
+
+Os resultados ficam em `RodCheck/AAAAmmddTHHMMSSZ/`, uma pasta **visível no Termius SFTP**. Envie o arquivo `rod-check-share.tar.gz` dessa pasta. O relatório e JSON estruturado estão no subdiretório `share/`. Logs originais ficam em `logs/` e não entram no pacote compartilhável.
+
+`rod-check` executa os scripts existentes `typecheck`, `lint`, `build`; `--full` acrescenta `test`, `check`, `validate`, `build/validate-changed.sh run` e `fallow audit`, quando disponíveis. Comandos ausentes são ignorados. Por padrão não instala dependências; `--install` permite `npm ci --ignore-scripts` quando existe lockfile. Verifique o pacote antes de compartilhá-lo: o mascaramento automático é limitado.
+
+Adicione `RodCheck/` ao `.gitignore` dos projetos onde executar o diagnóstico para evitar commits acidentais dos logs.

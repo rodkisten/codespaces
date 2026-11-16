@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Rod Check: run repository checks and export a shareable diagnostic bundle.
+set -Eeuo pipefail
+FULL=0; INSTALL=0
+while (($#)); do
+  case "$1" in
+    --full) FULL=1 ;;
+    --install) INSTALL=1 ;;
+    -h|--help) printf 'Usage: rod-check [--full] [--install]\nOutput: <repository>/RodCheck/<UTC timestamp>/\n'; exit 0 ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; exit 2 ;;
+  esac
+  shift
+done
+for tool in git python3; do command -v "$tool" >/dev/null || { echo "Missing $tool" >&2; exit 127; }; done
+ROOT="$(git rev-parse --show-toplevel)" || exit 2
+cd "$ROOT"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+OUT="$ROOT/RodCheck/$STAMP"
+mkdir -p "$OUT/logs"
+printf '\n🔎 Rod Check | %s\n📁 %s\n' "$STAMP" "$OUT"
+git rev-parse HEAD > "$OUT/commit.txt"
+git branch --show-current > "$OUT/branch.txt"
+: > "$OUT/checks.tsv"
+run_check() {
+  local name="$1"; shift
+  local file="$OUT/logs/$name.log" rc=0
+  printf '\n▶ %s: ' "$name"
+  printf '%q ' "$@"
+  printf '\n'
+  ("$@") > "$file" 2>&1 || rc=$?
+  printf '%s\t%s\t' "$name" "$rc" >> "$OUT/checks.tsv"
+  printf '%q ' "$@" >> "$OUT/checks.tsv"
+  printf '\n' >> "$OUT/checks.tsv"
+  if ((rc==0)); then printf '  ✓ PASS %s\n' "$name"; else printf '  ✗ FAIL %s (exit %s)\n' "$name" "$rc"; fi
+}
+if [[ -f package.json ]] && command -v node >/dev/null && command -v npm >/dev/null; then
+  if [[ ! -d node_modules && "$INSTALL" == 1 ]]; then
+    if [[ -f package-lock.json ]]; then run_check install npm ci --ignore-scripts
+    else printf '⚠ Skipping dependency install: no package-lock.json\n'; fi
+  fi
+  if [[ -d node_modules ]]; then
+    for name in typecheck lint build; do
+      if node -e 'const p=require("./package.json");process.exit(p.scripts?.[process.argv[1]]?0:1)' "$name"; then
+        run_check "$name" npm run "$name"
+      else printf '  ↷ SKIP %s (script absent)\n' "$name"; fi
+    done
+    if ((FULL)); then
+      for name in test check validate; do
+        if node -e 'const p=require("./package.json");process.exit(p.scripts?.[process.argv[1]]?0:1)' "$name"; then
+          run_check "$name" npm run "$name"
+        else printf '  ↷ SKIP %s (script absent)\n' "$name"; fi
+      done
+    fi
+  else printf '⚠ No node_modules. Run npm ci or rod-check --install\n'; fi
+fi
+if [[ -f build/validate-changed.sh ]] && ((FULL)); then run_check validate-changed bash build/validate-changed.sh run; fi
+if command -v fallow >/dev/null && ((FULL)); then run_check fallow fallow audit; fi
+# Scrub logs before generating a share bundle; keep raw logs only on the SSH host.
+python3 - "$OUT" <<'PY'
+import json, pathlib, re, sys, tarfile, collections
+out=pathlib.Path(sys.argv[1])
+checks=[]
+for line in (out/'checks.tsv').read_text().splitlines():
+    parts=line.split('\t',2)
+    if len(parts)==3: checks.append(dict(name=parts[0],exit_code=int(parts[1]),command=parts[2]))
+patterns=[
+    (re.compile(r'(?i)(authorization\s*[:=]\s*(?:bearer|basic)\s+)\S+'),r'\1[REDACTED]'),
+    (re.compile(r'(?i)((?:token|secret|password|private[_-]?key|api[_-]?key)\s*[:=]\s*)[^\s,;]+'),r'\1[REDACTED]'),
+    (re.compile(r'gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{20,}'), '[REDACTED]'),
+    (re.compile(r'(?i)(https?://)[^/@\s]+:[^/@\s]+@'),r'\1[REDACTED]@'),
+]
+def redact(s):
+    for pattern,replacement in patterns: s=pattern.sub(replacement,s)
+    return s
+errors=[]
+share=out/'share'
+(share/'logs').mkdir(parents=True,exist_ok=True)
+for p in sorted((out/'logs').glob('*.log')):
+    raw=p.read_text(errors='replace')
+    safe=redact(raw)
+    (share/'logs'/p.name).write_text(safe)
+    for line in safe.splitlines():
+        if re.search(r'error TS\d+|(?:^|\s)(?:error|failed|fatal):|##\[error\]',line,re.I):
+            errors.append(dict(check=p.stem,message=line[:1500]))
+report=['# Rod Check','',f'Commit: `{(out/"commit.txt").read_text().strip()}`',f'Branch: `{(out/"branch.txt").read_text().strip()}`','','## Checks']
+report.extend(f'- {"PASS" if x["exit_code"]==0 else "FAIL"} **{x["name"]}** (exit {x["exit_code"]}): `{x["command"]}`' for x in checks)
+report+=['','## Errors',*('- '+e['check']+': '+e['message'] for e in errors[:400])]
+if len(errors)>400: report.append(f'... {len(errors)-400} more errors in diagnostics.json')
+(share/'REPORT.md').write_text('\n'.join(report)+'\n')
+(share/'diagnostics.json').write_text(json.dumps(dict(checks=checks,errors=errors),ensure_ascii=False,indent=2))
+bundle=out/'rod-check-share.tar.gz'
+with tarfile.open(bundle,'w:gz') as tar:
+    for p in sorted(share.rglob('*')):
+        if p.is_file(): tar.add(p,arcname=str(p.relative_to(share)))
+print(f'\n📦 Share bundle: {bundle}')
+print(f'📄 Report: {share/"REPORT.md"}')
+print('⚠ Review bundle before sharing; automatic redaction is best-effort.')
+PY
+printf '\n✔ Finished. Open RodCheck in Termius SFTP.\n'

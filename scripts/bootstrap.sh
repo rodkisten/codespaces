@@ -31,6 +31,16 @@ if [[ "$phase" == create || "$phase" == start ]]; then
   fi
 fi
 if [[ "$phase" == create || "$phase" == start ]]; then
+  repo="${CODESPACE_VSCODE_FOLDER:-$PWD}"
+  if [[ -f "$repo/scripts/rod-check" ]]; then
+    mkdir -p "$HOME/.local/bin"
+    install -m 0755 "$repo/scripts/rod-check" "$HOME/.local/bin/rod-check"
+    echo "Installed global rod-check -> $HOME/.local/bin/rod-check"
+  else
+    echo "WARN: rod-check script missing; skipping"
+  fi
+fi
+if [[ "$phase" == create || "$phase" == start ]]; then
   if command -v mobile-doctor >/dev/null 2>&1; then
     mobile-doctor || echo "WARN: doctor reported missing tools"
   else
