@@ -9,7 +9,14 @@ mkdir -p "$state_dir"
 chmod 700 "$state_dir"
 export TS_SOCKET="$socket"
 
-daemon_running() { [[ -S "$socket" ]] && tailscale --socket="$socket" status >/dev/null 2>&1; }
+daemon_running() {
+  [[ -S "$socket" ]] || return 1
+  # A logged-out daemon is alive even when 'tailscale status' exits nonzero.
+  # Check for a meaningful response instead of requiring an authenticated status.
+  local output
+  output="$(timeout 3 tailscale --socket="$socket" status 2>&1)" && return 0
+  [[ "$output" == *"Logged out."* || "$output" == *"NeedsLogin"* ]]
+}
 start_daemon() {
   command -v tailscaled >/dev/null || { echo "tailscaled not installed" >&2; return 1; }
   if daemon_running; then
@@ -28,6 +35,7 @@ start_daemon() {
     sleep 0.25
   done
   echo "Tailscale failed to start; inspect $log" >&2
+  tail -n 25 "$log" >&2 || true
   return 1
 }
 is_connected() {
