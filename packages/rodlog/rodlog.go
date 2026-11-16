@@ -80,6 +80,9 @@ func Render(ev Event, opts Options) []byte {
  if opts.Mode==Raw || !opts.Color {return []byte(ev.Text)}
  text:=ev.Text
  if ansi.MatchString(text) {return []byte(text)}
+ // Tool-aware spans take precedence over whole-line severity styling.
+ highlighted:=highlightLine(text)
+ if highlighted!=text {return []byte(highlighted)}
  color:=""
  switch ev.Level {case Error:color="31";case Warning:color="33";case Success:color="32";default:
   if opts.Mode==Transform && ev.Tool!=Generic {color="36"}

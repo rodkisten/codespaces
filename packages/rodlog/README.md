@@ -24,7 +24,7 @@ npm run build 2>&1 | ./rodlog --color=always
 
 | Mode | What it does |
 | --- | --- |
-| `enhance` | Preserves original text, adds ANSI severity colors |
+| `enhance` | Preserves original text, adds ANSI token and severity colors |
 | `transform` | Adds tool-aware informational coloring; richer layouts planned |
 | `raw` | Copies input byte-for-byte |
 
@@ -52,7 +52,7 @@ See `scripts/install.sh` and `scripts/shell-hook.sh`. Install from a reviewed pi
 
 ## 🏗️ Architecture
 
-`io.Reader → streaming frames → detector → Event → renderer`. The core preserves text and falls back to original bytes on renderer errors. Current detection is conservative and line-oriented; multiline semantic diagnostics, TOML configuration, JSONL, GitHub annotations and richer Chroma highlighting remain on the roadmap.
+`io.Reader → streaming frames → detector → Event → renderer`. The core preserves text and falls back to original bytes on renderer errors. Current detection is conservative and line-oriented; multiline semantic diagnostics, TOML configuration, JSONL, GitHub annotations and Chroma highlighting and semantic adapters remain on the roadmap.
 
 ## 🗺️ Roadmap
 
@@ -98,3 +98,13 @@ rodlog exec -- docker build .
 ```
 
 For safe demonstrations without invoking cloud services, run `go test -v ./...` or pipe the fixture files under `testdata/`.
+
+## 🎨 Token highlighting (block 3)
+
+Known diagnostics now highlight **TS error codes**, **file:line:column references**, **severity words**, and **CLI names** independently. Existing ANSI escapes are preserved without recoloring. Tests assert that removing added ANSI escapes restores the exact input, including CRLF. No Chroma dependency yet: this is a lightweight token highlighter, with language lexing planned next.
+
+```bash
+go test -race -v ./...
+go run ./cmd/rodlog --color=always --tool=typescript < testdata/typescript.log
+go run ./cmd/rodlog --color=always --tool=gcloud < testdata/gcloud.log
+```
