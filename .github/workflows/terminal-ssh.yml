@@ -39,6 +39,20 @@ jobs:
           key: terminal-state-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             terminal-state-
+      - name: Restore personal shell settings
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p .rod-workspace/dotfiles
+          chmod 700 .rod-workspace .rod-workspace/dotfiles
+          if [[ -f .rod-workspace/dotfiles/zshrc.local ]]; then
+            install -m 600 .rod-workspace/dotfiles/zshrc.local "$HOME/.zshrc.local"
+            echo "[RESTORE] ~/.zshrc.local from previous workspace snapshot"
+          else
+            touch "$HOME/.zshrc.local"
+            chmod 600 "$HOME/.zshrc.local"
+            echo "[NEW] ~/.zshrc.local initialized"
+          fi
       - name: Prepare workspace and SSH daemon
         shell: bash
         run: |
@@ -235,14 +249,37 @@ jobs:
       - name: Keep SSH available
         shell: bash
         run: |
+          set -Eeuo pipefail
+          snapshot() {
+            if [[ -f "$HOME/.zshrc.local" ]]; then
+              install -m 600 "$HOME/.zshrc.local" "$GITHUB_WORKSPACE/.rod-workspace/dotfiles/zshrc.local"
+              echo "[SYNC] $(date -u +%FT%TZ) ~/.zshrc.local -> workspace snapshot"
+            else
+              echo "[SKIP] ~/.zshrc.local missing"
+            fi
+          }
+          trap 'snapshot || true' EXIT INT TERM
           echo "Session open for $SESSION_MINUTES minutes. Cancel the job to disconnect early."
+          echo "Snapshot every 60 seconds; final GitHub cache/artifact upload is best-effort."
           end=$((SECONDS + SESSION_MINUTES * 60))
           while (( SECONDS < end )); do
             sleep 15
+            if (( SECONDS % 60 < 15 )); then snapshot; fi
             if [[ -f /tmp/rod-sshd.log ]]; then
               sudo tail -n 30 /tmp/rod-sshd.log | grep -E 'Failed publickey|Accepted publickey|Authentication refused|bad ownership|Could not open|not allowed|Connection closed|Invalid user' | tail -n 10 || true
             fi
           done
+      - name: Final personal shell snapshot
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p .rod-workspace/dotfiles
+          if [[ -f "$HOME/.zshrc.local" ]]; then
+            install -m 600 "$HOME/.zshrc.local" .rod-workspace/dotfiles/zshrc.local
+            echo "[OK] Final ~/.zshrc.local snapshot"
+          else
+            echo "[SKIP] No personal Zsh configuration"
+          fi
       - name: Save persistent workspace
         if: always()
         uses: actions/cache/save@v4
