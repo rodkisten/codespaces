@@ -28,13 +28,12 @@ jobs:
         with:
           go-version-file: packages/rodlog/go.mod
           cache: false
-      - name: 🧹 Format Go sources for validation
+      - name: 🧹 Verify committed Go formatting
         run: |
-          echo "Formatting Go files before testing..."
-          gofmt -w .
-          if ! git diff --quiet -- '*.go'; then
-            echo "::warning::Go sources require a gofmt commit; showing the formatting diff"
-            git diff --stat -- '*.go'
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            printf 'Unformatted Go files:\n%s\n' "$files"
+            exit 1
           fi
       - name: 📦 Verify Go dependencies
         run: |
