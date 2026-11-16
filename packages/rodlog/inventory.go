@@ -6,9 +6,9 @@ import (
 )
 
 type ToolSpec struct {
-	Tool Tool `json:"tool"`
-	Commands []string `json:"commands"`
-	Description string `json:"description"`
+	Tool        Tool     `json:"tool"`
+	Commands    []string `json:"commands"`
+	Description string   `json:"description"`
 }
 
 func ToolInventory() []ToolSpec {
