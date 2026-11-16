@@ -11,9 +11,9 @@ import (
 
 func TestExtendedLogFixtures(t *testing.T) {
 	cases := []struct {
-		name string
-		tool Tool
-		want string
+		name  string
+		tool  Tool
+		want  string
 	}{
 		{"typescript", TypeScript, "TS2322"},
 		{"npm", NPM, "missing script"},
