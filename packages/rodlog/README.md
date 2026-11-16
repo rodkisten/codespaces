@@ -108,3 +108,15 @@ go test -race -v ./...
 go run ./cmd/rodlog --color=always --tool=typescript < testdata/typescript.log
 go run ./cmd/rodlog --color=always --tool=gcloud < testdata/gcloud.log
 ```
+
+## 🧪🎬 Tests that demonstrate the output
+
+The tests don't just assert behavior: `TestOutputExamples` **prints before/after examples** for npm, TypeScript, gcloud, Wrangler and Docker. In GitHub Actions, open the **🧪 Go tests** step to see the original fixture, highlighted ANSI output, example command and preservation assertion.
+
+```bash
+cd packages/rodlog
+go test -v -run '^TestOutputExamples$' ./...
+go test -race -v ./...
+```
+
+The examples are offline and do not deploy to Google Cloud, Cloudflare or Docker. The visible ANSI escape sequences are intentional, so terminal viewers can show colors when supported.
