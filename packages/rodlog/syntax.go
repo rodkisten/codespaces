@@ -42,5 +42,14 @@ func syntaxLanguage(text string) string {
 	if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
 		return "json"
 	}
+	if strings.HasPrefix(trimmed, "$ ") || strings.HasPrefix(trimmed, "#!/bin/bash") || strings.HasPrefix(trimmed, "#!/bin/sh") {
+		return "bash"
+	}
+	if strings.HasPrefix(trimmed, "const ") || strings.HasPrefix(trimmed, "interface ") || strings.HasPrefix(trimmed, "type ") || strings.HasPrefix(trimmed, "export ") {
+		return "typescript"
+	}
+	if strings.HasPrefix(trimmed, "---") || (strings.Contains(trimmed, ": ") && !strings.Contains(trimmed, "ERROR:") && !strings.Contains(trimmed, "WARNING:") && !strings.Contains(trimmed, "npm ")) {
+		return "yaml"
+	}
 	return ""
 }

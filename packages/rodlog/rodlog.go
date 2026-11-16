@@ -162,6 +162,11 @@ func Render(ev Event, opts Options) []byte {
 		return []byte(text)
 	}
 	// Structured payloads use Chroma; diagnostic lines retain semantic token highlighting.
+	if opts.Mode == Transform {
+		if table, ok := JSONTable(strings.TrimSpace(text), opts.Color); ok {
+			return []byte(table)
+		}
+	}
 	if language := syntaxLanguage(text); language != "" {
 		if colored, err := SyntaxHighlight(strings.TrimRight(text, "\r\n"), language); err == nil {
 			return []byte(colored + text[len(strings.TrimRight(text, "\r\n")):])

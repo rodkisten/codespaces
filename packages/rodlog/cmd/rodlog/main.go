@@ -27,6 +27,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	mode := flags.String("mode", env("RODLOG_MODE", "enhance"), "raw|enhance|transform")
 	tool := flags.String("tool", env("RODLOG_TOOL", "auto"), "auto|npm|typescript|gcloud|wrangler|docker")
+	jsonOutput := flags.Bool("json", false, "request JSON for allowlisted commands and show a summary table in transform mode")
 	color := flags.String("color", env("RODLOG_COLOR", "auto"), "auto|always|never")
 	if err := flags.Parse(args); err != nil {
 		return 2
@@ -59,6 +60,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(argv) == 0 {
 		fmt.Fprintln(stderr, "usage: rodlog exec [flags] -- COMMAND [ARGS...]")
 		return 2
+	}
+	if *jsonOutput {
+		argv, _ = rodlog.JSONCommand(argv)
 	}
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	// Combined pipe preserves order observed by the reader and the child's exit status.
