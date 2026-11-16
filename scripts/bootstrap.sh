@@ -25,6 +25,12 @@ if [[ "$phase" == start || "$phase" == create ]]; then
   fi
 fi
 if [[ "$phase" == create || "$phase" == start ]]; then
+  repo="${CODESPACE_VSCODE_FOLDER:-$PWD}"
+  if [[ -f "$repo/scripts/tailscale.sh" ]]; then
+    bash "$repo/scripts/tailscale.sh" start || echo "WARN: Tailscale userspace daemon failed to start"
+  fi
+fi
+if [[ "$phase" == create || "$phase" == start ]]; then
   if command -v mobile-doctor >/dev/null 2>&1; then
     mobile-doctor || echo "WARN: doctor reported missing tools"
   else
