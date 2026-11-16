@@ -88,3 +88,25 @@ git push
 ```
 
 O script não cria tokens nem executa login em serviços, não toca em permissões, projetos ou billing da Cloudflare/GCP, e não modifica os arquivos de código do seu projeto.
+
+## Tailscale no Codespace (sem Sync)
+
+O cliente Tailscale é instalado na imagem e o daemon é iniciado automaticamente
+pelos hooks `postCreate` e `postStart` em modo userspace, sem `/dev/net/tun`.
+O estado fica em `~/.local/state/rod-codespaces/tailscale/`, com permissões
+restritas. Não há importação de credenciais, login automático nem exposição
+pública de portas. A autenticação inicial exige confirmação:
+
+```bash
+bash scripts/tailscale.sh up       # abre o fluxo de login
+bash scripts/tailscale.sh status   # verifica conexão
+bash scripts/tailscale.sh ip       # IP privado
+bash scripts/tailscale.sh logs     # diagnóstico do daemon
+```
+
+**Atenção:** userspace não cria uma interface de rede do sistema. Para conexões
+SSH/SFTP a outros dispositivos da tailnet, use um proxy compatível com
+Tailscale (por exemplo `tailscale nc`) ou configure um SOCKS5 explícito.
+`ssh usuario@100.x.y.z` direto pode não funcionar nesse modo.
+O daemon reconecta automaticamente após o reinício quando o estado autenticado
+persistir; se o estado não persistir após um rebuild, será necessário autenticar novamente.
