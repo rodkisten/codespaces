@@ -13,6 +13,8 @@ import (
 	"github.com/rodkisten/codespaces/packages/rodlog"
 )
 
+// run is the CLI boundary. Injected streams make parsing testable without a
+// real terminal. Exit codes distinguish usage errors from child failures.
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "tools" {
 		for _, spec := range rodlog.ToolInventory() {
@@ -24,6 +26,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "rodlog v0.1.0-dev")
 		return 0
 	}
+	// Exec mode starts a child; otherwise we format an existing stdin stream.
 	commandMode := len(args) > 0 && args[0] == "exec"
 	if commandMode {
 		args = args[1:]
@@ -55,6 +58,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "invalid output:", *output)
 		return 2
 	}
+	// Auto-color avoids escape codes in redirected output and respects NO_COLOR.
 	enableColor := *color == "always" || (*color == "auto" && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb" && isTerminal(stdout))
 	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor})
 	switch *output {
@@ -94,6 +98,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 127
 	}
+	// Drain output while waiting: blocking on Wait first could deadlock if the
+	// child fills its pipe before exiting.
 	waitCh := make(chan error, 1)
 	go func() { err := cmd.Wait(); pipeWriter.Close(); waitCh <- err }()
 	processErr := engine.Process(ctx, pipeReader, stdout)
@@ -122,6 +128,7 @@ func env(key, fallback string) string {
 	}
 	return fallback
 }
+// isTerminal conservatively detects a character device for auto-color.
 func isTerminal(w io.Writer) bool {
 	f, ok := w.(*os.File)
 	if !ok {

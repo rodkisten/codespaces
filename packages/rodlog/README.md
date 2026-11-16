@@ -206,3 +206,5 @@ The terminal palette is semantic, not a general-purpose syntax rainbow: **red** 
 Start with [`rodlog.go`](rodlog.go) for the streaming engine and `Render` decision tree. Continue with [`semantic.go`](semantic.go) for tool-specific diagnostic extraction, [`highlight.go`](highlight.go) for prioritized non-overlapping color spans, [`syntax.go`](syntax.go) for conservative Chroma detection, and [`diagnostic_render.go`](diagnostic_render.go) for cards and source excerpts. The original text is retained in `Event.Text` even when a structured `Diagnostic` is recognized.
 
 The fixtures under `testdata/` are **synthetic representative examples**, not captured production logs. Use `go test -race ./...` to validate behavior and `go test -v -run TestOutputExamples ./...` for demonstrations.
+
+📐 **Architecture walkthrough:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
