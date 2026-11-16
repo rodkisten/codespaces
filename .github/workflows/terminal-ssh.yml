@@ -256,7 +256,8 @@ jobs:
             echo "::warning::SSH_SYNC_TOKEN not configured; remote synchronization is disabled"
           fi
           mkdir -p "$HOME/.local/bin"
-          ln -sfn "$GITHUB_WORKSPACE/scripts/rod-sync.sh" "$HOME/.local/bin/rod-sync"
+          printf '#!/usr/bin/env bash\nexec bash "%s/scripts/rod-sync.sh" "$@"\n' "$GITHUB_WORKSPACE" > "$HOME/.local/bin/rod-sync"
+          chmod 700 "$HOME/.local/bin/rod-sync"
       - name: Keep SSH available
         shell: bash
         run: |
