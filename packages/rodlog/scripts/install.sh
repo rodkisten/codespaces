@@ -37,7 +37,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 
 echo "🔎 Finding the latest successful main build for $REPO..."
-RUN_ID="$(gh api "repos/$REPO/actions/workflows/$WORKFLOW/runs" \
+RUN_ID="$(gh api -X GET "repos/$REPO/actions/workflows/$WORKFLOW/runs" \
   -f branch=main -f status=success -f event=push -f per_page=30 \
   --jq '.workflow_runs[] | select(.head_branch == "main") | .id' | head -n 1)"
 [ -n "$RUN_ID" ] || {
