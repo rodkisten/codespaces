@@ -23,7 +23,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: packages/rodlog/go.mod\n          cache: false
+          go-version-file: packages/rodlog/go.mod
+          cache: false
       - name: 🧪 Go tests
         run: go test -race -v ./...
       - name: 🔨 Build
