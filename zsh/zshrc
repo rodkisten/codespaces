@@ -39,6 +39,41 @@ function extract() {
     *) print -u2 'Unsupported archive'; return 2;;
   esac
 }
+# Mobile-friendly editor: default to personal overrides, keep existing files safe.
+# Usage: edit [path]; after editing ~/.zshrc.local, offer remote sync.
+function edit() {
+  local file="${1:-$HOME/.zshrc.local}"
+  local editor
+  if command -v micro >/dev/null 2>&1; then
+    editor=micro
+  elif command -v nano >/dev/null 2>&1; then
+    editor=nano
+  elif command -v vi >/dev/null 2>&1; then
+    editor=vi
+  else
+    print -u2 '[FAIL] No terminal editor found (micro, nano or vi)'
+    return 127
+  fi
+  if (( $# > 1 )); then
+    print -u2 'Usage: edit [file]'
+    return 2
+  fi
+  print -r -- "[RUN] $editor $file"
+  "$editor" "$file" || return $?
+  print -r -- "[OK] Editor closed: $file"
+  if [[ "${file:A}" == "${HOME}/.zshrc.local" ]]; then
+    if command -v zsh >/dev/null && ! zsh -n "$file"; then
+      print -u2 '[FAIL] Zsh syntax invalid; fix before syncing'
+      return 1
+    fi
+    if command -v rod-sync >/dev/null; then
+      print -r -- '[RUN] rod-sync now'
+      rod-sync now
+    else
+      print -r -- '[SKIP] rod-sync unavailable; periodic sync will run if configured'
+    fi
+  fi
+}
 # Never store access tokens, secrets or credentials in this tracked file.
 # Optional personal overrides. Keep credentials out of shell config.
 # Set ROD_LOAD_LOCAL_ZSHRC=0 to disable for one session.
