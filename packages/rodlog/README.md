@@ -28,7 +28,7 @@ npm run build 2>&1 | ./rodlog --color=always
 | `transform` | Renders structured diagnostic cards, source excerpts, suggestions, grouped counts and JSON tables when recognized |
 | `raw` | Copies input byte-for-byte |
 
-`--tool=auto` detects recognizable signatures, including BuildKit `#N [stage]` headers and `#N DONE` status lines. Force a tool when necessary. `--color=auto|always|never` respects `NO_COLOR` in auto mode.
+`--tool=auto` detects recognizable signatures, including Dockerfile instruction headers in BuildKit `#N [stage]` format and `#N DONE` status lines. Force a tool when necessary. `--color=auto|always|never` respects `NO_COLOR` in auto mode.
 
 BuildKit cards use a 36-character divider by default. Library callers can override it with `Options.DockerSeparator`; CLI users can set `--docker-separator="===="` or `RODLOG_DOCKER_SEPARATOR="===="`; TOML configuration is not available yet.
 

@@ -102,3 +102,26 @@ func TestDockerBuildKitAutoDetection(t *testing.T) {
 		t.Fatalf("automatic BuildKit cards missing: %q", output.String())
 	}
 }
+
+func TestDockerAutoDetectionDoesNotCaptureOtherLogs(t *testing.T) {
+	for _, line := range []string{
+		"#7 [build 1/2] unrelated event\n",
+		"#7 [build 1/2] completed arbitrary task\n",
+		"ordinary application output\n",
+	} {
+		if got := Detect(line); got == Docker {
+			t.Errorf("false Docker detection for %q", line)
+		}
+	}
+}
+
+func TestDockerBuildKitInterleavedStatuses(t *testing.T) {
+	steps := newDockerBuildSteps()
+	steps.format("#18 [build 1/3] FROM node:22\n")
+	steps.format("#4 [build 2/3] RUN npm ci\n")
+	first, okFirst := steps.format("#4 CACHED\n")
+	second, okSecond := steps.format("#18 DONE 0.1s\n")
+	if !okFirst || !okSecond || !strings.Contains(first, "STEP 2") || !strings.Contains(first, "CACHED") || !strings.Contains(second, "STEP 1") {
+		t.Fatalf("interleaved status mismatch: first=%q second=%q", first, second)
+	}
+}

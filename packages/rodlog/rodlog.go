@@ -76,7 +76,10 @@ var patterns = map[Tool][]string{
 
 func Detect(s string) Tool {
 	// BuildKit progress IDs are emitted without the word "docker".
-	if buildKitHeader.MatchString(s) || buildKitStatus.MatchString(s) || buildKitLegacyHeader.MatchString(s) {
+	if m := buildKitHeader.FindStringSubmatch(s); m != nil && buildKitInstruction.MatchString(m[3]) {
+		return Docker
+	}
+	if buildKitStatus.MatchString(s) || buildKitLegacyHeader.MatchString(s) {
 		return Docker
 	}
 	lower := strings.ToLower(s)
