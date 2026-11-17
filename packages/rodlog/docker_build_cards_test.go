@@ -130,9 +130,9 @@ func TestDockerCustomColors(t *testing.T) {
 	steps := newDockerBuildSteps()
 	steps.colors = mergeDockerColors(steps.colors, DockerColors{
 		BadgeBackground: "48;2;12;34;56",
-		BadgeText: "38;2;200;210;220",
-		Done: "38;2;1;2;3",
-		Separator: "38;2;4;5;6",
+		BadgeText:       "38;2;200;210;220",
+		Done:            "38;2;1;2;3",
+		Separator:       "38;2;4;5;6",
 	})
 	header, ok := steps.format("#8 [build 1/2] RUN echo hello\n")
 	if !ok || !strings.Contains(header, "\x1b[48;2;12;34;56m") || !strings.Contains(header, "\x1b[38;2;200;210;220m") || !strings.Contains(header, "\x1b[38;2;4;5;6m") {

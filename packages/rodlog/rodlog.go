@@ -50,13 +50,13 @@ type Event struct {
 	Text       string
 }
 type Options struct {
-	Mode    Mode
-	Tool    Tool
-	Color   bool
-	MaxLine int
+	Mode            Mode
+	Tool            Tool
+	Color           bool
+	MaxLine         int
 	// DockerSeparator replaces the default 36-character BuildKit divider.
 	DockerSeparator string
-	DockerColors DockerColors
+	DockerColors    DockerColors
 }
 type Renderer interface{ Render(Event) ([]byte, error) }
 type Engine struct {
