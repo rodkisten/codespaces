@@ -1,8 +1,6 @@
 package rodlog
 
 import (
- "os"
- "strconv"
  "strings"
 
  "github.com/charmbracelet/lipgloss"
@@ -36,15 +34,13 @@ func ParseNPMDiagnostic(lines []string) NPMDiagnostic {
 
 func RenderNPMCard(lines []string, opts Options) string {
  if len(lines)==0{return ""}
- width:=80
- if n,err:=strconv.Atoi(os.Getenv("COLUMNS"));err==nil && n>=30 && n<=1000 {width=n}
- if width>100 {width=100}
+ width:=cardWidth(opts)
  d:=ParseNPMDiagnostic(lines)
  title:=lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")).Render(iconOrDefault(opts.DiagnosticIcons.Error,"✖")+" NPM ERROR")
  body:=[]string{title}
- if d.Message!="" {body=append(body,lipgloss.NewStyle().Bold(true).Render(d.Message))}
- body=append(body,d.Details...)
- if d.Suggestion!="" {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render("$ "+d.Suggestion))}
- if d.LogPath!="" {body=append(body,"Debug log:",lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(d.LogPath))}
- return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("9")).Padding(0,1).Width(width-4).Render(strings.Join(body,"\n"))+"\n"
+ if d.Message!="" {for _,line:=range wrapCardText(d.Message,width-6) {body=append(body,lipgloss.NewStyle().Bold(true).Render(line))}}
+ for _,detail:=range uniqueCardDetails(d.Message,d.Details) {body=append(body,wrapCardText(detail,width-6)...)}
+ if d.Suggestion!="" {for _,line:=range wrapCardText("$ "+d.Suggestion,width-6) {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(line))}}
+ if d.LogPath!="" {body=append(body,"Debug log:");for _,line:=range wrapCardText(d.LogPath,width-6) {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(line))}}
+ return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("9")).Padding(0,1).Width(width-4).MaxWidth(width).Render(strings.Join(body,"\n"))+"\n"
 }

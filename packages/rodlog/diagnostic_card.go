@@ -1,10 +1,7 @@
 package rodlog
 
 import (
- "os"
  "regexp"
- "strconv"
- "unicode/utf8"
  "strings"
 
  "github.com/charmbracelet/lipgloss"
@@ -82,52 +79,23 @@ func cleanCardText(s string) string {
  return strings.Join(strings.Fields(strings.TrimSpace(s))," ")
 }
 
-// cardWrap breaks long words and sentences at UTF-8 rune boundaries so that
-// GitHub Actions does not split borders independently of the contents.
-func cardWrap(s string, width int) string {
- if width<1{return s}
- var lines []string
- for _,part:=range strings.Split(s,"\n") {
-  var current strings.Builder
-  for _,word:=range strings.Fields(part) {
-   for utf8.RuneCountInString(word)>width {
-    if current.Len()>0 {lines=append(lines,current.String());current.Reset()}
-    r:=[]rune(word)
-    lines=append(lines,string(r[:width]))
-    word=string(r[width:])
-   }
-   if word==""{continue}
-   if current.Len()>0 && utf8.RuneCountInString(current.String())+1+utf8.RuneCountInString(word)>width {lines=append(lines,current.String());current.Reset()}
-   if current.Len()>0 {current.WriteByte(' ')}
-   current.WriteString(word)
-  }
-  lines=append(lines,current.String())
- }
- return strings.Join(lines,"\n")
-}
-
 func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  if opts.Preset==nil || !opts.Preset.Diagnostics.Card.Enabled {return ""}
- max:=opts.Preset.Diagnostics.Card.MaxWidth
- if max<30 {max=100}
- width:=58
- if n,err:=strconv.Atoi(os.Getenv("COLUMNS"));err==nil && n>=30 && n<width {width=n}
- if width>max {width=max}
- if width<30 {width=30}
+ width:=cardWidth(opts)
  color:=lipgloss.Color("9")
  title:=lipgloss.NewStyle().Bold(true).Foreground(color).Render(iconOrDefault(opts.DiagnosticIcons.Error,"✖")+" "+d.Title)
  lines:=[]string{title}
  if d.API!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render("API: "+d.API))}
  if d.Code!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render("Code: "+d.Code))}
- if d.Message!="" {lines=append(lines,HighlightWithPreset(d.Message,d.Tool,*opts.Preset,opts.SemanticColors))}
- for _,detail:=range d.Details {lines=append(lines,HighlightWithPreset(detail,d.Tool,*opts.Preset,opts.SemanticColors))}
- if len(d.Fixes)>0 {lines=append(lines,"Possible fixes:");for _,fix:=range d.Fixes {lines=append(lines,"› "+fix)}}
+ if d.Message!="" {for _,part:=range wrapCardText(d.Message,width-6) {lines=append(lines,HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors))}}
+ for _,detail:=range uniqueCardDetails(d.Message,d.Details) {for _,part:=range wrapCardText(detail,width-6) {lines=append(lines,HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors))}}
+ if len(d.Fixes)>0 {lines=append(lines,"Possible fixes:");for _,fix:=range uniqueCardDetails("",d.Fixes) {lines=append(lines,wrapCardText("› "+fix,width-6)... )}}
  style:=lipgloss.NewStyle().Padding(0,1).Width(width-4).MaxWidth(width)
  switch opts.Preset.Diagnostics.Card.Border {
  case "none": // no border
  case "normal":style=style.Border(lipgloss.NormalBorder()).BorderForeground(color)
  default:style=style.Border(lipgloss.RoundedBorder()).BorderForeground(color)
  }
- content:=lipgloss.NewStyle().Width(width-6).Render(cardWrap(strings.Join(lines,"\n"),width-6))
+ content:=strings.Join(lines,"\n")
  return style.Render(content)+"\n"
 }
