@@ -49,11 +49,11 @@ jobs:
           set -euo pipefail
           export COLUMNS=90
           for tool in npm typescript gcloud wrangler docker; do
-            fixture="testdata/${tool}.log"
+            fixture="testdata/preview/${tool}.log"
             printf '\n%s\n' '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
             printf '  🎨 rodlog · %s · %s\n' "$tool" "$fixture"
             printf '%s\n' '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-            ./rodlog --mode=enhance --tool="$tool" --color=always < "$fixture"
+            ./rodlog --mode=transform --preset=default --tool="$tool" --color=always < "$fixture"
             printf '\n'
           done
 

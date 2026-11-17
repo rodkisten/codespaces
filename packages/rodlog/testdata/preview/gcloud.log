@@ -1,0 +1,15 @@
+Deploying container to Cloud Run service [api] in project [demo-project] region [us-central1]
+Building using Dockerfile and deploying container to Cloud Run service...
+Creating Revision...
+Routing traffic...
+ERROR: (gcloud.run.deploy) Permission denied on resource project demo-project.
+ERROR: (gcloud.run.deploy) User does not have permission to access service.
+WARNING: (gcloud.run.deploy) Revision is not ready and cannot serve traffic.
+ERROR: (gcloud.artifacts.repositories.downloadArtifacts) PERMISSION_DENIED: missing permission.
+Updated property [core/project].
+Listing services for project demo-project...
+SERVICE: api
+REGION: us-central1
+URL: https://api.example.invalid
+ERROR: (gcloud.run.services.list) Request had insufficient authentication scopes.
+For troubleshooting, run gcloud auth list.

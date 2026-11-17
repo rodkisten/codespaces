@@ -1,0 +1,15 @@
+ ⛅️ wrangler 4.0.0
+-------------------
+Using vars defined in wrangler.toml
+Total Upload: 42.11 KiB / gzip: 10.33 KiB
+Your Worker has access to the following bindings:
+env.DB (D1 Database)
+env.ASSETS (Assets)
+Uploading worker...
+✘ [ERROR] Authentication error [code: 10000]
+You are not authenticated. Please run wrangler login.
+[WARNING] Deprecated configuration field "zone_id"
+✘ [ERROR] Missing required environment variable CLOUDFLARE_API_TOKEN
+ERROR: failed to publish Worker
+Deployment cancelled.
+Log written to /tmp/wrangler/example.log
