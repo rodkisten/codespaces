@@ -1,8 +1,7 @@
 package rodlog
 
 import (
- "fmt"
- "os"
+  "os"
  "strconv"
  "strings"
  "github.com/charmbracelet/lipgloss"
@@ -27,4 +26,4 @@ func RenderNPMCard(lines []string, opts Options) string {
  return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("9")).Padding(0,1).Width(width-4).Render(content)+"\n"
 }
 
-func npmCardExample() string {return fmt.Sprint("npm ERR!") }
+

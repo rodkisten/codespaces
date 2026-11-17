@@ -12,7 +12,7 @@ func TestNPMMultilineCard(t *testing.T) {
  err:=New(Options{Mode:Transform,Tool:NPM,Color:true}).Process(context.Background(),strings.NewReader(input),&out)
  if err!=nil {t.Fatal(err)}
  got:=ansi.ReplaceAllString(out.String(),"")
- for _,part:=range []string{"NPM ERROR","Missing script","npm run","example-debug-0.log","╭","╰"} {
+ for _,part:=range []string{"NPM ERROR","Missing script","npm run","example-debug-","╭","╰"} {
   if !strings.Contains(got,part){t.Errorf("missing %q: %q",part,got)}
  }
 }

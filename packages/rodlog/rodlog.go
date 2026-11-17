@@ -171,7 +171,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 		if len(line) > 0 {
 			seq++
 			text := string(line)
-			if e.Options.Tool==NPM || e.Options.Tool==Auto && (current==NPM || Detect(text)==NPM) {
+			if e.Options.Mode==Transform && e.Options.Color && e.Renderer==nil && (e.Options.Tool==NPM || e.Options.Tool==Auto && (current==NPM || Detect(text)==NPM)) {
 				if strings.HasPrefix(strings.TrimSpace(text),"npm ERR!") || strings.HasPrefix(strings.TrimSpace(text),"npm error") {
 					if len(npmLines)<80 && len(strings.Join(npmLines,""))+len(text)<=65536 { npmLines=append(npmLines,text); continue }
 				}
