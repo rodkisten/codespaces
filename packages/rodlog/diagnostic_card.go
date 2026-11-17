@@ -20,8 +20,8 @@ type DiagnosticCard struct {
 }
 var gcloudAPI = regexp.MustCompile(`\(gcloud\.([^)]+)\)`)
 var errorCode = regexp.MustCompile(`\b[A-Z][A-Z0-9_]{3,}\b`)
-var wranglerError = regexp.MustCompile(`\[ERROR\]\s*(.*?)(?:\s*\[code:\s*(\d+)\])?$`)
-var wranglerEnvironment = regexp.MustCompile(`\b[A-Z][A-Z0-9_]{3,}\b`)
+var wranglerCardError = regexp.MustCompile(`\[ERROR\]\s*(.*?)(?:\s*\[code:\s*(\d+)\])?$`)
+
 
 func ParseDiagnosticCard(tool Tool, lines []string) DiagnosticCard {
  d:=DiagnosticCard{Tool:tool}
@@ -39,7 +39,7 @@ func ParseDiagnosticCard(tool Tool, lines []string) DiagnosticCard {
     if d.Message=="" {d.Message=message} else {d.Details=append(d.Details,message)}
    } else {d.Details=append(d.Details,clean)}
   case Wrangler:
-   if m:=wranglerError.FindStringSubmatch(clean);m!=nil {
+   if m:=wranglerCardError.FindStringSubmatch(clean);m!=nil {
     if d.Title=="" {d.Title="WRANGLER ERROR"}
     if d.Message=="" {d.Message=m[1]} else {d.Details=append(d.Details,m[1])}
     if m[2]!="" {d.Code=m[2]}
@@ -74,8 +74,8 @@ func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  lines:=[]string{title}
  if d.API!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(d.API))}
  if d.Code!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(d.Code))}
- if d.Message!="" {lines=append(lines,d.Message)}
- lines=append(lines,d.Details...)
+ if d.Message!="" {lines=append(lines,HighlightWithPreset(d.Message,d.Tool,*opts.Preset,opts.SemanticColors))}
+ for _,detail:=range d.Details {lines=append(lines,HighlightWithPreset(detail,d.Tool,*opts.Preset,opts.SemanticColors))}
  if len(d.Fixes)>0 {lines=append(lines,"Possible fixes:");for _,fix:=range d.Fixes {lines=append(lines,"› "+fix)}}
  style:=lipgloss.NewStyle().Padding(0,1).Width(width-4)
  switch opts.Preset.Diagnostics.Card.Border {
