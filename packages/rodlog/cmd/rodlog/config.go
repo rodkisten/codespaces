@@ -33,7 +33,7 @@ func fallback(value, defaultValue string) string {
 func findConfigPath(args []string) (string, error) {
 	for i, arg := range args {
 		if arg == "--config" {
-			if i+1 >= len(args) || args[i+1] == "" {
+			if i+1 >= len(args) || args[i+1] == "" || strings.HasPrefix(args[i+1], "--") {
 				return "", fmt.Errorf("--config requires a path")
 			}
 			return args[i+1], nil
