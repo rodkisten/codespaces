@@ -181,3 +181,54 @@ Teste: `sleep 11` e depois `false` (este último só notifica se exceder o limit
 
 **Segurança:** o comando completo não é enviado, apenas o primeiro token, nome do diretório, duração e código de saída. Não versionar o arquivo de configuração. O envio é assíncrono, com timeout de 8 segundos; o terminal não aguarda a rede. A integração exige Zsh, curl e Python 3.
 
+
+## 🐧 Debian VM: instalação completa
+
+Este instalador é **diferente** do `install.sh` da raiz: ele prepara uma VM Debian real. Execute como root ou com `sudo`. Ele não configura firewall, SSH público nem altera regras de acesso à VM.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/debian/install.sh -o /tmp/rod-debian.sh
+sudo bash /tmp/rod-debian.sh --user rod
+```
+
+> Segurança: revise o script antes de executá-lo com privilégios de root. Para instalação não interativa, o usuário criado não recebe senha automaticamente; configure SSH autorizado e/ou senha manualmente.
+
+### 🧰 Comandos e opções
+
+| Opção | Ação |
+|---|---|
+| `--user rod` | Cria usuário `rod` se ausente, adiciona ao grupo sudo e configura Zsh |
+| `--extra "httpie ncdu"` | Adiciona pacotes APT sem reinstalar os existentes |
+| `--no-languages` | Ignora instalação de uv, rustup e Zplug |
+| `--packages-only` | Instala pacotes APT e prepara o usuário, sem linguagens extras |
+| `--tailscale` | Instala cliente Tailscale; autenticação separada |
+| `--clone` | Clona repos públicos/privados acessíveis via `gh`, quando instalado e autenticado |
+| `--dry-run` | Simula as ações principais |
+
+```bash
+# Atualizar pacotes ausentes e instalar extras
+sudo bash /tmp/rod-debian.sh --user rod --extra "httpie neovim"
+
+# Instalar Tailscale, sem autenticar automaticamente
+sudo bash /tmp/rod-debian.sh --user rod --tailscale
+
+# Prévia
+sudo bash /tmp/rod-debian.sh --user rod --dry-run
+
+# Clonar repositórios em ~/code (após instalar e autenticar gh)
+sudo bash /tmp/rod-debian.sh --user rod --clone
+```
+
+Inclui ferramentas de build, Git, SSH, Zsh, fzf, ripgrep, fd, bat, micro, zoxide, Go, Rust, Node, Python, uv, jq, shellcheck, ferramentas de rede e Zplug. Cada pacote instalado é ignorado nas execuções seguintes; falhas individuais de APT são registradas. **Atenção:** versões de Go/Node dos repositórios Debian podem ser mais antigas que as versões upstream. O Zplug é clonado, mas a ativação de plugins exige configuração no `~/.zshrc`. O script de Notify! é instalado separadamente, já como usuário normal.
+
+### 🔔 Notify! na VM
+
+Depois de entrar com `su - rod`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/notify/install.sh | bash
+exec zsh
+```
+
+Configure `~/.config/rod-notify/config` com `ROD_NOTIFY_URL` e `ROD_NOTIFY_TOKEN` (veja a seção Rod Notify).
+
