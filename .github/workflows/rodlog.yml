@@ -40,13 +40,22 @@ jobs:
           go mod tidy
           go mod verify
       - name: 🧪 Go tests
-        run: go test -race -v ./...
-      - name: 🎬 Structured output examples
-        run: go test -v -run 'TestJSONTable|TestJSONCommandAllowlist|TestSyntaxLanguage' ./...
-      - name: 🎬 Output examples
-        run: go test -v -run TestOutputExamples ./...
+        run: go test -race ./...
       - name: 🔨 Build
-        run: go build ./cmd/rodlog
+        run: go build -o rodlog ./cmd/rodlog
+      - name: 🎨 Preview fixtures with real CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          export COLUMNS=90
+          for tool in npm typescript gcloud wrangler docker; do
+            fixture="testdata/${tool}.log"
+            printf '\n%s\n' '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+            printf '  🎨 rodlog · %s · %s\n' "$tool" "$fixture"
+            printf '%s\n' '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+            ./rodlog --mode=enhance --tool="$tool" --color=always < "$fixture"
+            printf '\n'
+          done
 
   artifacts:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')

@@ -3,7 +3,6 @@ package rodlog
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,29 +57,7 @@ func TestOutputExamples(t *testing.T) {
 				t.Fatalf("expected ANSI highlighting for %s", tt.tool)
 			}
 
-			t.Logf("\n%s", strings.Repeat("━", 48))
-			t.Logf("🌈 rodlog | %s | mode=enhance | color=always", tt.tool)
-			t.Logf("🧪 command: %s", exampleCommand(tt.tool))
-			t.Logf("📥 Original output:\n%s", strings.TrimSuffix(string(fixture), "\n"))
-			t.Logf("🎨 Highlighted output (ANSI):\n%s", strings.TrimSuffix(output.String(), "\n"))
-			t.Logf("✅ Original content preserved; ANSI tokens verified")
 		})
 	}
 }
 
-func exampleCommand(tool Tool) string {
-	switch tool {
-	case NPM:
-		return "rodlog exec -- npm run build"
-	case TypeScript:
-		return "rodlog exec -- npx tsc --noEmit"
-	case GCloud:
-		return "rodlog exec -- gcloud run deploy"
-	case Wrangler:
-		return "rodlog exec -- npx wrangler deploy"
-	case Docker:
-		return "rodlog exec -- docker build ."
-	default:
-		return fmt.Sprintf("rodlog --tool=%s", tool)
-	}
-}
