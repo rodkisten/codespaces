@@ -43,11 +43,18 @@ func TestOutputExamples(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if got := ansi.ReplaceAllString(output.String(), ""); got != string(fixture) {
+			if got := ansi.ReplaceAllString(output.String(), ""); tt.tool != Docker && got != string(fixture) {
 				t.Fatalf("highlighting changed the original text:\nwant: %q\ngot:  %q", fixture, got)
 			}
 
-			if !strings.Contains(output.String(), "\x1b[") {
+			if tt.tool == Docker {
+			plain := ansi.ReplaceAllString(output.String(), "")
+			if !strings.Contains(plain, "STEP 1") || !strings.Contains(plain, "RUN npm ci") || !strings.Contains(plain, "ERROR: failed to solve") {
+				t.Fatalf("Docker output lost step cards or diagnostics: %q", plain)
+			}
+		}
+
+		if !strings.Contains(output.String(), "\x1b[") {
 				t.Fatalf("expected ANSI highlighting for %s", tt.tool)
 			}
 

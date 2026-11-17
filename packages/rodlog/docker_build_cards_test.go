@@ -23,7 +23,10 @@ func TestDockerBuildStepCards(t *testing.T) {
 		t.Errorf("raw header leaked: %q", got)
 	}
 	if strings.Count(got, "STEP 2") != 1 {
-		t.Errorf("duplicate header: %q", got)
+		t.Errorf("duplicate card: %q", got)
+	}
+	if !strings.Contains(got, "#12 [builder 2/3] RUN npm ci") {
+		t.Errorf("repeated header was silently dropped: %q", got)
 	}
 }
 

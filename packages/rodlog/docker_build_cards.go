@@ -31,7 +31,9 @@ func (s *dockerBuildSteps) format(text string) (string, bool) {
 		return "", false
 	}
 	if _, exists := s.numbers[key]; exists {
-		return "", true
+		// Repeated headers may carry new information in the command text.
+		// Preserve them rather than silently dropping output.
+		return "", false
 	}
 	s.next++
 	s.numbers[key] = s.next

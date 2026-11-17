@@ -250,4 +250,4 @@ BuildKit status recognition now uses correct Go regexp escapes. Active operation
 
 ### Vite-style BuildKit step headers
 
-When color is enabled, Dockerfile instruction headers become muted-background `STEP N` badges with Chroma syntax highlighting (original text fallback), followed by a subtle separator. Repeated headers are suppressed; BuildKit status and timing lines remain visible. Raw and no-color modes preserve original bytes. Separator customization via TOML is planned.
+When color is enabled, Dockerfile instruction headers become muted-background `STEP N` badges with Chroma syntax highlighting (original text fallback), followed by a subtle separator. Repeated headers are preserved as raw text rather than silently discarded; BuildKit status and timing lines remain visible. Raw and no-color modes preserve original bytes. Separator customization via TOML is planned.
