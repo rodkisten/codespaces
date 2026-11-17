@@ -51,9 +51,9 @@ jobs:
           export RODLOG_CARD_WIDTH=36
           for tool in npm typescript gcloud wrangler docker; do
             fixture="testdata/preview/${tool}.log"
-            printf '\n%s\n' '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+            printf '\n\033[2m%s\033[0m\n' '────────────────────────────────────'
             printf '  🎨 rodlog · %s · %s\n' "$tool" "$fixture"
-            printf '%s\n' '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+            printf '\033[2m%s\033[0m\n' '────────────────────────────────────'
             ./rodlog --mode=transform --preset=default --tool="$tool" --color=always < "$fixture"
             printf '\n'
           done

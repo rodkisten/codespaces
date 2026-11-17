@@ -82,14 +82,15 @@ func cleanCardText(s string) string {
 func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  if opts.Preset==nil || !opts.Preset.Diagnostics.Card.Enabled {return ""}
  width:=cardWidth(opts)
- color:=lipgloss.Color("9")
- title:=lipgloss.NewStyle().Bold(true).Foreground(color).Render(iconOrDefault(opts.DiagnosticIcons.Error,"✖")+" "+d.Title)
+ color:=lipgloss.Color("8")
+ accent:=lipgloss.Color("9")
+ title:=lipgloss.NewStyle().Bold(true).Foreground(accent).Render(iconOrDefault(opts.DiagnosticIcons.Error,"✖")+" "+d.Title)
  lines:=[]string{title}
  if d.API!="" {for _,part:=range cardLines("API: "+d.API,width) {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(part))}}
  if d.Code!="" {for _,part:=range cardLines("Code: "+d.Code,width) {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(part))}}
- if d.Message!="" {for _,part:=range cardLines(d.Message,width) {lines=append(lines,HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors))}}
+ if d.Message!="" {for _,part:=range cardLines(d.Message,width) {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true).Render(HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors)))}}
  for _,detail:=range uniqueCardDetails(d.Message,d.Details) {for _,part:=range cardLines(detail,width) {lines=append(lines,HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors))}}
- if len(d.Fixes)>0 {lines=append(lines,"Possible fixes:");for _,fix:=range uniqueCardDetails("",d.Fixes) {lines=append(lines,cardLines("› "+fix,width)... )}}
+ if len(d.Fixes)>0 {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true).Render("Possible fixes:"));for _,fix:=range uniqueCardDetails("",d.Fixes) {for _,part:=range cardLines("› "+fix,width) {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(part))}}}
  style:=lipgloss.NewStyle().Padding(0,1).Width(width-4).MaxWidth(width)
  switch opts.Preset.Diagnostics.Card.Border {
  case "none": // no border
