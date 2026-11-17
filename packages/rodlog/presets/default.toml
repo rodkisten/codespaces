@@ -12,15 +12,15 @@ max_width = 100
 [gcloud]
 enabled = true
 [gcloud.tokens]
-command = '\\(gcloud\\.[^)]+\\)'
-scope = '\\[[^\\]]+\\]'
-error_code = '\\b[A-Z][A-Z0-9_]{3,}\\b'
+command = '\(gcloud\.[^)]+\)'
+scope = '\[[^\]]+\]'
+error_code = '\b[A-Z][A-Z0-9_]{3,}\b'
 
 [wrangler]
 enabled = true
 [wrangler.tokens]
-environment = '\\b[A-Z][A-Z0-9_]*\\b'
-error_code = '\\[code:\\s*\\d+\\]'
+environment = '\b[A-Z][A-Z0-9_]*\b'
+error_code = '\[code:\s*\d+\]'
 
 [docker]
 enabled = true

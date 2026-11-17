@@ -65,6 +65,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	iconInfo := flags.String("icon-info", env("RODLOG_ICON_INFO", config.Icons.Info), "info diagnostic icon")
 	iconSuggestion := flags.String("icon-suggestion", env("RODLOG_ICON_SUGGESTION", config.Icons.Suggestion), "suggestion icon")
 	iconExplanation := flags.String("icon-explanation", env("RODLOG_ICON_EXPLANATION", config.Icons.Explanation), "explanation icon")
+	presetPath := flags.String("preset", env("RODLOG_PRESET", "default"), "semantic preset: default|off|path to TOML file")
 	syntaxStyle := flags.String("syntax-style", env("RODLOG_SYNTAX_STYLE", config.Syntax.Style), "Chroma syntax theme")
 	jsonOutput := flags.Bool("json", false, "request JSON for allowlisted commands and show a summary table in transform mode")
 	color := flags.String("color", env("RODLOG_COLOR", fallback(config.Color, "auto")), "auto|always|never")
@@ -120,7 +121,20 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if iconErr != nil { fmt.Fprintln(stderr, iconErr); return 2 }
 	syntaxTheme, syntaxErr := rodlog.ParseSyntaxTheme(rodlog.SyntaxTheme{Style: *syntaxStyle})
 	if syntaxErr != nil { fmt.Fprintln(stderr, syntaxErr); return 2 }
-	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor, DockerSeparator: *dockerSeparator, DockerColors: dockerColors, SemanticColors: semanticColors, DiagnosticIcons: icons, SyntaxTheme: syntaxTheme})
+	var preset *rodlog.SemanticPreset
+	if *presetPath != "off" {
+		if *presetPath == "default" {
+			loaded := rodlog.DefaultSemanticPreset()
+			preset = &loaded
+		} else {
+			data, err := os.ReadFile(*presetPath)
+			if err != nil { fmt.Fprintln(stderr, "preset:", err); return 2 }
+			loaded, err := rodlog.ParseSemanticPreset(data)
+			if err != nil { fmt.Fprintln(stderr, "preset:", err); return 2 }
+			preset = &loaded
+		}
+	}
+	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor, DockerSeparator: *dockerSeparator, DockerColors: dockerColors, SemanticColors: semanticColors, DiagnosticIcons: icons, SyntaxTheme: syntaxTheme, Preset: preset})
 	switch *output {
 	case "jsonl":
 		engine.Renderer = rodlog.JSONLRenderer{}
