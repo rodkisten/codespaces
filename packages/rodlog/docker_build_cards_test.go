@@ -214,7 +214,7 @@ func TestDockerNestedBuildKitOutput(t *testing.T) {
 	var out bytes.Buffer
 	if err := New(Options{Mode: Enhance, Tool: Auto, Color: true}).Process(context.Background(), strings.NewReader(input), &out); err != nil { t.Fatal(err) }
 	plain := ansi.ReplaceAllString(out.String(), "")
-	for _, expected := range []string{"STEP 1", "load build definition", "STEP 1.1/1", "transferring dockerfile: 615B done", "load metadata", "load .dockerignore", "STEP 3.1/3", "transferring context: 2B done", "STEP 7", "STEP 7.1/7", "npm ERR! code ERESOLVE", "STEP 4 ERROR", "exit code: 1", "│"} {
+	for _, expected := range []string{"STEP 1", "load build definition", "STEP 1.1/1", "transferring dockerfile: 615B done", "load metadata", "load .dockerignore", "STEP 3.1/3", "transferring context: 2B done", "STEP 7", "STEP 7.1/4", "npm ERR! code ERESOLVE", "STEP 4 ERROR", "exit code: 1", "╰──"} {
 		if !strings.Contains(plain, expected) { t.Errorf("missing %q in output: %s", expected, plain) }
 	}
 }
@@ -223,5 +223,5 @@ func TestDockerInterleavedNestedOutput(t *testing.T) {
 	s.format("#8 [build 1/2] RUN echo hello\n")
 	s.format("#9 [build 2/2] RUN echo world\n")
 	got, ok := s.format("#8 0.2 hello\n")
-	if !ok || !strings.Contains(got, "STEP 1.1/1") || !strings.Contains(got, "0.2s") { t.Fatalf("nested step association: %q", got) }
+	if !ok || !strings.Contains(got, "STEP 1.1/2") || !strings.Contains(got, "0.2s") { t.Fatalf("nested step association: %q", got) }
 }
