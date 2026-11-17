@@ -8,8 +8,8 @@ import (
 
 // BuildKit IDs are concurrent. Display steps are numbered when a header first appears.
 type dockerBuildSteps struct {
-	numbers map[string]int
-	next    int
+	numbers   map[string]int
+	next      int
 	separator string
 }
 
@@ -56,6 +56,6 @@ func (s *dockerBuildSteps) format(text string) (string, bool) {
 	if highlighted, err := SyntaxHighlight(command, "dockerfile"); err == nil {
 		colored = strings.TrimRight(highlighted, "\r\n")
 	}
-	// The separator is intentionally fixed until TOML configuration lands.
+	// The divider is configurable through engine options.
 	return fmt.Sprintf("%s  %s\n\x1b[2m%s\x1b[0m\n", badge, colored, s.separator), true
 }

@@ -30,7 +30,7 @@ npm run build 2>&1 | ./rodlog --color=always
 
 `--tool=auto` detects recognizable signatures. Force a tool when necessary. `--color=auto|always|never` respects `NO_COLOR` in auto mode.
 
-BuildKit cards use a 36-character divider by default. Library callers can override it with `Options.DockerSeparator`; CLI/TOML configuration is not available yet.
+BuildKit cards use a 36-character divider by default. Library callers can override it with `Options.DockerSeparator`; CLI users can set `--docker-separator="===="` or `RODLOG_DOCKER_SEPARATOR="===="`; TOML configuration is not available yet.
 
 ## 🧪 Tests
 

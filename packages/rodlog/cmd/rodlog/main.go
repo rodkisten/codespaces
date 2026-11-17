@@ -35,6 +35,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	mode := flags.String("mode", env("RODLOG_MODE", "enhance"), "raw|enhance|transform")
 	tool := flags.String("tool", env("RODLOG_TOOL", "auto"), "auto|npm|typescript|gcloud|wrangler|docker|vitest|node-test")
+	dockerSeparator := flags.String("docker-separator", env("RODLOG_DOCKER_SEPARATOR", ""), "divider shown beneath Docker BuildKit step cards")
 	jsonOutput := flags.Bool("json", false, "request JSON for allowlisted commands and show a summary table in transform mode")
 	color := flags.String("color", env("RODLOG_COLOR", "auto"), "auto|always|never")
 	output := flags.String("output", env("RODLOG_OUTPUT", "terminal"), "terminal|jsonl|github")
@@ -60,7 +61,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	// Auto-color avoids escape codes in redirected output and respects NO_COLOR.
 	enableColor := *color == "always" || (*color == "auto" && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb" && isTerminal(stdout))
-	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor})
+	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor, DockerSeparator: *dockerSeparator})
 	switch *output {
 	case "jsonl":
 		engine.Renderer = rodlog.JSONLRenderer{}
