@@ -28,3 +28,25 @@ func TestDockerfileSyntaxDetection(t *testing.T) {
 		t.Fatalf("expected Dockerfile lexer, got %q", got)
 	}
 }
+
+// BuildKit statuses should be legible while step numbers and timing survive.
+func TestDockerBuildSteps(t *testing.T) {
+	cases := []struct {
+		line string
+		colored string
+	}{
+		{"#12 CACHED\\n", "\\x1b[2mCACHED\\x1b[0m"},
+		{"#13 DONE 0.4s\\n", "\\x1b[32mDONE\\x1b[0m"},
+		{"#14 ERROR: process exited\\n", "\\x1b[31mERROR\\x1b[0m"},
+		{"#15 [stage-0 2/3] exporting layers\\n", "\\x1b[36m#15 [stage-0 2/3] exporting\\x1b[0m"},
+	}
+	for _, tc := range cases {
+		got := string(Render(Event{Tool: Docker, Text: tc.line}, Options{Mode: Enhance, Color: true}))
+		if !strings.Contains(got, tc.colored) {
+			t.Errorf("step %q missing %q in %q", tc.line, tc.colored, got)
+		}
+		if raw := string(Render(Event{Tool: Docker, Text: tc.line}, Options{Mode: Raw, Color: true})); raw != tc.line {
+			t.Errorf("raw step changed: %q", raw)
+		}
+	}
+}

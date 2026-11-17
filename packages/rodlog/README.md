@@ -230,3 +230,12 @@ In transform mode, single-line Vitest and Node assertions such as `AssertionErro
 ## 🐳 Docker runtime and Dockerfile highlighting
 
 The Docker adapter now colors selected container health/lifecycle/error tokens in `docker run`, `docker logs` and `docker compose logs`, while preserving timestamps, service prefixes and existing ANSI. Recognized Dockerfile instruction lines use the **existing Chroma Dockerfile lexer**, not a custom lexer. Example: `rodlog exec --tool=docker --color=always -- docker compose logs --follow`. This is an incremental semantic layer; multi-container grouping and complete event coverage remain on the roadmap.
+
+### BuildKit steps
+
+BuildKit output from `docker build --progress=plain` and `docker compose build --progress=plain` gets contextual highlighting: **CACHED** is dim, **DONE/FINISHED** green, **ERROR** red, and active export/transfer steps cyan. Step IDs, commands and timings remain intact. Existing ANSI remains untouched.
+
+```bash
+rodlog exec --tool=docker --color=always -- docker build --progress=plain .
+rodlog exec --tool=docker --color=always -- docker compose build --progress=plain
+```
