@@ -43,3 +43,13 @@ func TestDiagnosticCardNoBorder(t *testing.T) {
  got:=RenderDiagnosticCard(DiagnosticCard{Tool:Wrangler,Title:"WRANGLER ERROR",Message:"Authentication error"},Options{Preset:&p})
  if strings.Contains(got,"╭") || strings.Contains(got,"┌") {t.Fatalf("unexpected border: %q",got)}
 }
+
+func TestGCloudCodeExtraction(t *testing.T) {
+ d:=ParseDiagnosticCard(GCloud,[]string{"ERROR: (gcloud.run.deploy) PERMISSION_DENIED: missing permission."})
+ if d.Code!="PERMISSION_DENIED" {t.Fatalf("wrong code: %q",d.Code)}
+ if len(d.Fixes)!=1 {t.Fatalf("expected known fix: %+v",d)}
+}
+func TestGCloudErrorWithoutCode(t *testing.T) {
+ d:=ParseDiagnosticCard(GCloud,[]string{"ERROR: (gcloud.run.deploy) Something failed"})
+ if d.Code!="" {t.Fatalf("invented error code: %q",d.Code)}
+}

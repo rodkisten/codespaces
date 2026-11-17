@@ -33,7 +33,9 @@ func ParseDiagnosticCard(tool Tool, lines []string) DiagnosticCard {
    if strings.HasPrefix(clean,"ERROR:") {
     if d.Title=="" {d.Title="GCLOUD ERROR"}
     if m:=gcloudAPI.FindStringSubmatch(clean);m!=nil {d.API=m[1]}
-    if m:=errorCode.FindString(clean);m!="" && m!="ERROR" {d.Code=m}
+    for _,code:=range errorCode.FindAllString(clean,-1) {
+     if code!="ERROR" && code!="GCLOUD" && code!="HTTP" {d.Code=code;break}
+    }
     message:=strings.TrimSpace(strings.TrimPrefix(clean,"ERROR:"))
     if m:=gcloudAPI.FindString(message);m!="" {message=strings.TrimSpace(strings.Replace(message,m,"",1))}
     if d.Message=="" {d.Message=message} else {d.Details=append(d.Details,message)}
@@ -52,7 +54,7 @@ func ParseDiagnosticCard(tool Tool, lines []string) DiagnosticCard {
   }
  }
  if d.Title=="" {d.Title=strings.ToUpper(string(tool))+" ERROR"}
- if tool==Wrangler && strings.Contains(strings.Join(lines,"\n"),"not authenticated") {
+ if tool==Wrangler && strings.Contains(strings.ToLower(strings.Join(lines,"\n")),"not authenticated") {
   d.Fixes=append(d.Fixes,"Run wrangler login to authenticate")
  }
  if tool==GCloud && d.Code=="PERMISSION_DENIED" {
