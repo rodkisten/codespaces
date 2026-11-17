@@ -22,7 +22,7 @@ func TestRunnerDetection(t *testing.T) {
 
 func TestRunnerDiagnostics(t *testing.T) {
 	cases := []struct {
-		tool Tool
+		tool        Tool
 		input, want string
 	}{
 		{Vitest, " ❯ src/button.test.ts > renders label", "src/button.test.ts > renders label"},
