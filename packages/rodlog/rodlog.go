@@ -28,6 +28,8 @@ const (
 	GCloud     Tool = "gcloud"
 	Wrangler   Tool = "wrangler"
 	Docker     Tool = "docker"
+	Vitest     Tool = "vitest"
+	NodeTest   Tool = "node-test"
 	Generic    Tool = "generic"
 )
 
@@ -66,11 +68,13 @@ var patterns = map[Tool][]string{
 	GCloud:     {"gcloud ", "ERROR: (gcloud", "WARNING: (gcloud", "Updated property", "Deploying container"},
 	Wrangler:   {"wrangler ", "cloudflare", "workers.dev", "wrangler.toml", "wrangler.jsonc"},
 	Docker:     {"docker ", "Step 1/", "=> [", "dockerfile:", "exporting layers", "writing image"},
+	Vitest:     {"vitest ", "vitest run", "❯ ", "test files ", "tests  "},
+	NodeTest:   {"node --test", "✖ tests ", "ℹ tests ", "✖ failing tests:"},
 }
 
 func Detect(s string) Tool {
 	lower := strings.ToLower(s)
-	for _, tool := range []Tool{TypeScript, NPM, GCloud, Wrangler, Docker} {
+	for _, tool := range []Tool{TypeScript, Vitest, NodeTest, NPM, GCloud, Wrangler, Docker} {
 		for _, token := range patterns[tool] {
 			if strings.Contains(lower, strings.ToLower(token)) {
 				return tool

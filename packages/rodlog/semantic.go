@@ -27,6 +27,66 @@ var (
 	dockerPrefix   = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
 	dockerLocation = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
 	wranglerPrefix = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
+	vitestFailure = regexp.MustCompile(`^\s*(?:❯|✖|×)\s+(.+)package rodlog
+
+import (
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+// Diagnostic is the renderer-independent representation of a tool message.
+// Original output remains in Event.Text; parsers must never rewrite source bytes.
+type Diagnostic struct {
+	Tool    Tool   `json:"tool"`
+	Level   Level  `json:"level"`
+	Code    string `json:"code,omitempty"`
+	File    string `json:"file,omitempty"`
+	Line    int    `json:"line,omitempty"`
+	Column  int    `json:"column,omitempty"`
+	Message string `json:"message"`
+}
+
+var (
+	tsLocation     = regexp.MustCompile(`^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$`)
+	tsColon        = regexp.MustCompile(`^(.+?):(\d+):(\d+)\s*[-:]\s*(error|warning)\s+(TS\d+):\s*(.+)$`)
+	tsPlain        = regexp.MustCompile(`^(error|warning)\s+(TS\d+):\s*(.+)$`)
+	npmPrefix      = regexp.MustCompile(`(?i)^npm\s+(ERR!|error|WARN|warn|notice)\s*(.*)$`)
+	gcloudPrefix   = regexp.MustCompile(`^(ERROR|WARNING):\s*(?:\(gcloud(?:\.[^)]+)?\)\s*)?(.+)$`)
+	dockerPrefix   = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
+	dockerLocation = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
+	wranglerPrefix = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
+)
+	nodeTestFailure = regexp.MustCompile(`^\s*(?:✖|not ok\s+\d+\s*-)\s+(.+)package rodlog
+
+import (
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+// Diagnostic is the renderer-independent representation of a tool message.
+// Original output remains in Event.Text; parsers must never rewrite source bytes.
+type Diagnostic struct {
+	Tool    Tool   `json:"tool"`
+	Level   Level  `json:"level"`
+	Code    string `json:"code,omitempty"`
+	File    string `json:"file,omitempty"`
+	Line    int    `json:"line,omitempty"`
+	Column  int    `json:"column,omitempty"`
+	Message string `json:"message"`
+}
+
+var (
+	tsLocation     = regexp.MustCompile(`^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$`)
+	tsColon        = regexp.MustCompile(`^(.+?):(\d+):(\d+)\s*[-:]\s*(error|warning)\s+(TS\d+):\s*(.+)$`)
+	tsPlain        = regexp.MustCompile(`^(error|warning)\s+(TS\d+):\s*(.+)$`)
+	npmPrefix      = regexp.MustCompile(`(?i)^npm\s+(ERR!|error|WARN|warn|notice)\s*(.*)$`)
+	gcloudPrefix   = regexp.MustCompile(`^(ERROR|WARNING):\s*(?:\(gcloud(?:\.[^)]+)?\)\s*)?(.+)$`)
+	dockerPrefix   = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
+	dockerLocation = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
+	wranglerPrefix = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
+)
 	wranglerError  = regexp.MustCompile(`(?i)^(?:✘\s*)?(?:error|warning):\s*(.+)$`)
 )
 
@@ -97,6 +157,17 @@ func ParseDiagnostic(tool Tool, input string) *Diagnostic {
 				d.Column, _ = strconv.Atoi(m[2])
 			}
 			d.Message = line
+			return d
+		}
+	case Vitest:
+		// Only failure markers become diagnostics; passing tests stay plain logs.
+		if m := vitestFailure.FindStringSubmatch(line); m != nil {
+			d.Message = m[1]
+			return d
+		}
+	case NodeTest:
+		if m := nodeTestFailure.FindStringSubmatch(line); m != nil {
+			d.Message = m[1]
 			return d
 		}
 	case Wrangler:

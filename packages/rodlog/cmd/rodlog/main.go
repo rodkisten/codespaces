@@ -34,7 +34,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("rodlog", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	mode := flags.String("mode", env("RODLOG_MODE", "enhance"), "raw|enhance|transform")
-	tool := flags.String("tool", env("RODLOG_TOOL", "auto"), "auto|npm|typescript|gcloud|wrangler|docker")
+	tool := flags.String("tool", env("RODLOG_TOOL", "auto"), "auto|npm|typescript|gcloud|wrangler|docker|vitest|node-test")
 	jsonOutput := flags.Bool("json", false, "request JSON for allowlisted commands and show a summary table in transform mode")
 	color := flags.String("color", env("RODLOG_COLOR", "auto"), "auto|always|never")
 	output := flags.String("output", env("RODLOG_OUTPUT", "terminal"), "terminal|jsonl|github")
@@ -45,7 +45,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "invalid mode:", *mode)
 		return 2
 	}
-	valid := map[string]bool{"auto": true, "npm": true, "typescript": true, "gcloud": true, "wrangler": true, "docker": true}
+	valid := map[string]bool{"auto": true, "npm": true, "typescript": true, "gcloud": true, "wrangler": true, "docker": true, "vitest": true, "node-test": true}
 	if !valid[*tool] {
 		fmt.Fprintln(stderr, "invalid tool:", *tool)
 		return 2

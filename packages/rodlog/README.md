@@ -218,3 +218,7 @@ In `--mode=transform`, recognized TypeScript diagnostics now add a short semanti
 ```bash
 rodlog exec --mode=transform --color=always -- npx tsc --noEmit
 ```
+
+## 🧪 Test runner adapters (initial support)
+
+`rodlog exec --mode=transform --color=always -- npx vitest run` and `rodlog exec --mode=transform --color=always -- node --test` recognize common failed-test markers and turn them into diagnostic cards. `node --version` remains generic. This is a first step: assertion diffs, stack traces, summary counters and richer suite grouping are still on the [roadmap](docs/ROADMAP.md). Raw and no-color modes continue to preserve the source output.
