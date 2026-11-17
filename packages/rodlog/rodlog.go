@@ -164,7 +164,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 				current = detected
 			}
 			event := Event{Sequence: seq, Tool: current, Level: Classify(text), Text: text}
-			if current == Docker && e.Renderer == nil && e.Options.Color && e.Options.Mode != Raw {
+			if e.Renderer == nil && e.Options.Color && e.Options.Mode != Raw && (current == Docker || buildKitChild.MatchString(text) && buildSteps.numbers[buildKitChild.FindStringSubmatch(text)[1]] > 0 || buildKitFinalError.MatchString(text)) {
 				if formatted, ok := buildSteps.format(text); ok {
 					if _, writeErr := io.WriteString(dst, formatted); writeErr != nil {
 						return fmt.Errorf("write Docker step: %w", writeErr)

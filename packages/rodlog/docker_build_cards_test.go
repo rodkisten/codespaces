@@ -208,3 +208,20 @@ func TestEngineDockerHexColors(t *testing.T) {
 		}
 	}
 }
+
+func TestDockerNestedBuildKitOutput(t *testing.T) {
+	input := "#1 [internal] load build definition from Dockerfile\n#1 transferring dockerfile: 615B done\n#2 [internal] load metadata for docker.io/library/node:22-alpine\n#3 [internal] load .dockerignore\n#3 transferring context: 2B done\n#4 [1/4] FROM docker.io/library/node:22-alpine\n#5 [2/4] WORKDIR /app\n#6 [3/4] COPY package.json package-lock.json ./\n#7 [4/4] RUN npm ci\n#7 0.3 npm ERR! code ERESOLVE\nSTEP 4  ERROR: process \"/bin/sh -c npm ci\" did not complete successfully: exit code: 1\n"
+	var out bytes.Buffer
+	if err := New(Options{Mode: Enhance, Tool: Auto, Color: true}).Process(context.Background(), strings.NewReader(input), &out); err != nil { t.Fatal(err) }
+	plain := ansi.ReplaceAllString(out.String(), "")
+	for _, expected := range []string{"STEP 1", "load build definition", "STEP 1.1/1", "transferring dockerfile: 615B done", "load metadata", "load .dockerignore", "STEP 3.1/3", "transferring context: 2B done", "STEP 7", "STEP 7.1/7", "npm ERR! code ERESOLVE", "STEP 4 ERROR", "exit code: 1", "│"} {
+		if !strings.Contains(plain, expected) { t.Errorf("missing %q in output: %s", expected, plain) }
+	}
+}
+func TestDockerInterleavedNestedOutput(t *testing.T) {
+	s := newDockerBuildSteps()
+	s.format("#8 [build 1/2] RUN echo hello\n")
+	s.format("#9 [build 2/2] RUN echo world\n")
+	got, ok := s.format("#8 0.2 hello\n")
+	if !ok || !strings.Contains(got, "STEP 1.1/1") || !strings.Contains(got, "0.2s") { t.Fatalf("nested step association: %q", got) }
+}
