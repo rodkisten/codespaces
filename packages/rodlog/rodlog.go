@@ -321,7 +321,7 @@ func Render(ev Event, opts Options) []byte {
 			return []byte(colored + text[len(strings.TrimRight(text, "\r\n")):])
 		}
 	}
-	if opts.Preset!=nil && (ev.Tool==GCloud || ev.Tool==Wrangler) {
+	if opts.Preset!=nil && (ev.Tool==GCloud || ev.Tool==Wrangler || ev.Tool==Docker || ev.Tool==TypeScript) {
 		if IsStepLine(text,ev.Tool,*opts.Preset) {
 			return []byte("\x1b[2;3m"+strings.TrimRight(text,"\r\n")+"\x1b[0m"+text[len(strings.TrimRight(text,"\r\n")):])
 		}

@@ -67,19 +67,19 @@ func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  if opts.Preset==nil || !opts.Preset.Diagnostics.Card.Enabled {return ""}
  max:=opts.Preset.Diagnostics.Card.MaxWidth
  if max<30 {max=100}
- width:=80
+ width:=58
  if n,err:=strconv.Atoi(os.Getenv("COLUMNS"));err==nil && n>=30 {width=n}
  if width>max {width=max}
  if width<30 {width=30}
  color:=lipgloss.Color("9")
  title:=lipgloss.NewStyle().Bold(true).Foreground(color).Render(iconOrDefault(opts.DiagnosticIcons.Error,"✖")+" "+d.Title)
  lines:=[]string{title}
- if d.API!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(d.API))}
- if d.Code!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(d.Code))}
+ if d.API!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render("API: "+d.API))}
+ if d.Code!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render("Code: "+d.Code))}
  if d.Message!="" {lines=append(lines,HighlightWithPreset(d.Message,d.Tool,*opts.Preset,opts.SemanticColors))}
  for _,detail:=range d.Details {lines=append(lines,HighlightWithPreset(detail,d.Tool,*opts.Preset,opts.SemanticColors))}
  if len(d.Fixes)>0 {lines=append(lines,"Possible fixes:");for _,fix:=range d.Fixes {lines=append(lines,"› "+fix)}}
- style:=lipgloss.NewStyle().Padding(0,1).Width(width-4)
+ style:=lipgloss.NewStyle().Padding(0,1).Width(width-4).MaxWidth(width)
  switch opts.Preset.Diagnostics.Card.Border {
  case "none": // no border
  case "normal":style=style.Border(lipgloss.NormalBorder()).BorderForeground(color)

@@ -22,6 +22,9 @@ type highlightSpan struct {
 
 var diagnosticRules = []highlightRule{
 	{regexp.MustCompile(`\bTS[0-9]{4,5}\b`), "35", 10},
+	{regexp.MustCompile(`\b(?:ERESOLVE|ENOENT|EACCES|EPERM|PERMISSION_DENIED|UNAUTHENTICATED)\b`), "31", 11},
+	{regexp.MustCompile(`\bexit code:\s*[1-9][0-9]*\b`), "31", 10},
+	{regexp.MustCompile(`\b(?:FROM|WORKDIR|COPY|RUN|ADD|ARG|ENV|ENTRYPOINT|CMD)\b`), "36", 4},
 	{regexp.MustCompile(`(?:[[:alnum:]_./-]+)\.(?:tsx?|jsx?|py|go|json|yaml|yml):[0-9]+(?::[0-9]+)?`), "36", 9},
 	{regexp.MustCompile(`(?:[[:alnum:]_./-]+)\.(?:tsx?|jsx?|py|go)\([0-9]+,[0-9]+\)`), "4;36", 9},
 	{regexp.MustCompile(`\b(?:ERROR|Error|error|FAILED|Failed|failed)\b|ERR!`), "31", 8},
