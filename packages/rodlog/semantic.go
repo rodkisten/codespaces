@@ -27,7 +27,7 @@ var (
 	dockerPrefix    = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
 	dockerLocation  = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
 	wranglerPrefix  = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
-	runnerAssertion  = regexp.MustCompile(`(?i)^(?:AssertionError:\s*)?expected\s+(.+?)\s+to\s+(?:deeply\s+)?(?:equal|be)\s+(.+?)\.?$`)
+	runnerAssertion = regexp.MustCompile(`(?i)^(?:AssertionError:\s*)?expected\s+(.+?)\s+to\s+(?:deeply\s+)?(?:equal|be)\s+(.+?)\.?$`)
 	vitestFailure   = regexp.MustCompile(`^\s*(?:❯|✖|×)\s+(.+)$`)
 	nodeTestFailure = regexp.MustCompile(`^\s*(?:✖\s+|not ok\s+\d+\s*-\s*)(.+)$`)
 	wranglerError   = regexp.MustCompile(`(?i)^(?:✘\s*)?(?:error|warning):\s*(.+)$`)

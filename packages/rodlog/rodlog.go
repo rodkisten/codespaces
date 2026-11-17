@@ -227,6 +227,13 @@ func Render(ev Event, opts Options) []byte {
 			return []byte(table)
 		}
 	}
+	// Docker output gets contextual styling before generic severity coloring.
+	// Do not rewrite an already-colored stream or fabricate a diagnostic.
+	if ev.Tool == Docker {
+		if colored, ok := highlightDocker(text); ok {
+			return []byte(colored)
+		}
+	}
 	if language := syntaxLanguage(text); language != "" {
 		if colored, err := SyntaxHighlight(strings.TrimRight(text, "\r\n"), language); err == nil {
 			return []byte(colored + text[len(strings.TrimRight(text, "\r\n")):])
