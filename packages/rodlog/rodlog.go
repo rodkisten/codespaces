@@ -80,7 +80,7 @@ var patterns = map[Tool][]string{
 
 func Detect(s string) Tool {
 	// BuildKit progress IDs are emitted without the word "docker".
-	if m := buildKitHeader.FindStringSubmatch(s); m != nil && (buildKitInstruction.MatchString(m[3]) || strings.HasPrefix(m[2], "internal") || strings.Contains(m[2], "/")) {
+	if m := buildKitHeader.FindStringSubmatch(s); m != nil && (buildKitInstruction.MatchString(m[3]) || strings.HasPrefix(m[2], "internal") || buildKitInstruction.MatchString(m[3])) {
 		return Docker
 	}
 	if buildKitStatus.MatchString(s) || buildKitLegacyHeader.MatchString(s) {

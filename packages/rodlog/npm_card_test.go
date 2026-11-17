@@ -12,9 +12,13 @@ func TestNPMMultilineCard(t *testing.T) {
  err:=New(Options{Mode:Transform,Tool:NPM,Color:true}).Process(context.Background(),strings.NewReader(input),&out)
  if err!=nil {t.Fatal(err)}
  got:=ansi.ReplaceAllString(out.String(),"")
- for _,part:=range []string{"NPM ERROR","Missing script","npm run","example-debug-","╭","╰"} {
+ for _,part:=range []string{"NPM ERROR","Missing script","npm run","Debug log:","╭","╰"} {
   if !strings.Contains(got,part){t.Errorf("missing %q: %q",part,got)}
  }
+}
+func TestNPMDiagnosticStructured(t *testing.T) {
+ d:=ParseNPMDiagnostic([]string{"npm ERR! Missing script: \"release\"\n","npm ERR!   npm run\n","npm ERR! A complete log of this run can be found in: /tmp/log.txt\n"})
+ if d.Message!="Missing script: \"release\"" || d.Suggestion!="npm run" || d.LogPath!="/tmp/log.txt" {t.Fatalf("unexpected parsed diagnostic: %+v",d)}
 }
 func TestNPMRawPreserved(t *testing.T) {
  input:="npm ERR! first\nnpm ERR! second\n"
