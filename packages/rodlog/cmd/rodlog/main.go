@@ -122,12 +122,14 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fmt.Fprintln(stderr, waitErr)
 	return 1
 }
+
 func env(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return fallback
 }
+
 // isTerminal conservatively detects a character device for auto-color.
 func isTerminal(w io.Writer) bool {
 	f, ok := w.(*os.File)
@@ -137,4 +139,5 @@ func isTerminal(w io.Writer) bool {
 	s, e := f.Stat()
 	return e == nil && (s.Mode()&os.ModeCharDevice) != 0
 }
+
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
