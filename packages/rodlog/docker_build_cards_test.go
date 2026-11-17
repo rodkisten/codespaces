@@ -32,8 +32,8 @@ func TestDockerBuildStepCardsRaw(t *testing.T) {
 	for _, opts := range []Options{{Mode: Raw, Tool: Docker, Color: true}, {Mode: Enhance, Tool: Docker, Color: false}} {
 		var output bytes.Buffer
 		if err := New(opts).Process(context.Background(), strings.NewReader(input), &output); err != nil {
-		t.Fatal(err)
-	}
+			t.Fatal(err)
+		}
 		if output.String() != input {
 			t.Errorf("input changed: %q", output.String())
 		}
