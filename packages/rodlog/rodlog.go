@@ -80,7 +80,7 @@ var patterns = map[Tool][]string{
 
 func Detect(s string) Tool {
 	// BuildKit progress IDs are emitted without the word "docker".
-	if m := buildKitHeader.FindStringSubmatch(s); m != nil {
+	if m := buildKitHeader.FindStringSubmatch(s); m != nil && (buildKitInstruction.MatchString(m[3]) || strings.HasPrefix(m[2], "internal") || strings.Contains(m[2], "/")) {
 		return Docker
 	}
 	if buildKitStatus.MatchString(s) || buildKitLegacyHeader.MatchString(s) {
@@ -146,8 +146,21 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 	if e.Options.DockerSeparator != "" {
 		buildSteps.separator = e.Options.DockerSeparator
 	}
+	var npmLines []string
+	flushNPM := func() error {
+		if len(npmLines)==0 { return nil }
+		lines:=npmLines
+		npmLines=nil
+		if e.Options.Color && e.Options.Mode==Transform && e.Renderer==nil {
+			_, err:=io.WriteString(dst, RenderNPMCard(lines, e.Options))
+			return err
+		}
+		_,err:=io.WriteString(dst, strings.Join(lines,""))
+		return err
+	}
 	for {
 		if err := ctx.Err(); err != nil {
+			_ = flushNPM()
 			return err
 		}
 		line, err := reader.ReadSlice('\n')
@@ -158,6 +171,12 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 		if len(line) > 0 {
 			seq++
 			text := string(line)
+			if e.Options.Tool==NPM || e.Options.Tool==Auto && (current==NPM || Detect(text)==NPM) {
+				if strings.HasPrefix(strings.TrimSpace(text),"npm ERR!") || strings.HasPrefix(strings.TrimSpace(text),"npm error") {
+					if len(npmLines)<80 && len(strings.Join(npmLines,""))+len(text)<=65536 { npmLines=append(npmLines,text); continue }
+				}
+			}
+			if err:=flushNPM();err!=nil{return fmt.Errorf("write npm card: %w",err)}
 			if e.Options.Tool != Auto {
 				current = e.Options.Tool
 			} else if detected := Detect(text); detected != Generic {
@@ -213,6 +232,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 			}
 		}
 		if err == io.EOF {
+			if flushErr:=flushNPM();flushErr!=nil{return flushErr}
 			if e.Options.Mode == Transform && e.Renderer == nil && e.Options.Color && counts[Error]+counts[Warning] > 0 {
 				groups := make([]string, 0, len(grouped))
 				for name := range grouped {
