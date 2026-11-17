@@ -27,7 +27,7 @@ var (
 	dockerPrefix   = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
 	dockerLocation = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
 	wranglerPrefix = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
-	vitestFailure = regexp.MustCompile(`^\s*(?:❯|✖|×)\s+(.+)package rodlog
+	vitestFailure   = regexp.MustCompile(`^\s*(?:❯|✖|×)\s+(.+)package rodlog
 
 import (
 	"regexp"
@@ -57,7 +57,7 @@ var (
 	dockerLocation = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
 	wranglerPrefix = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
 )
-	nodeTestFailure = regexp.MustCompile(`^\s*(?:✖|not ok\s+\d+\s*-)\s+(.+)package rodlog
+	nodeTestFailure = regexp.MustCompile(`^\s*(?:✖|not ok\s+\d+\s*-\s*)\s*(.+)package rodlog
 
 import (
 	"regexp"
@@ -160,7 +160,7 @@ func ParseDiagnostic(tool Tool, input string) *Diagnostic {
 			return d
 		}
 	case Vitest:
-		// Only failure markers become diagnostics; passing tests stay plain logs.
+		// Failure markers are diagnostics; successful tests remain plain output.
 		if m := vitestFailure.FindStringSubmatch(line); m != nil {
 			d.Message = m[1]
 			return d
