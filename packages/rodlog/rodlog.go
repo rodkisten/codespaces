@@ -60,6 +60,7 @@ type Options struct {
 	SemanticColors  SemanticColors
 	DiagnosticIcons DiagnosticIcons
 	SyntaxTheme SyntaxTheme
+	Preset *SemanticPreset
 }
 type Renderer interface{ Render(Event) ([]byte, error) }
 type Engine struct {
@@ -286,6 +287,13 @@ func Render(ev Event, opts Options) []byte {
 		if colored, err := SyntaxHighlightWithTheme(strings.TrimRight(text, "\r\n"), language, opts.SyntaxTheme); err == nil {
 			return []byte(colored + text[len(strings.TrimRight(text, "\r\n")):])
 		}
+	}
+	if opts.Preset!=nil && (ev.Tool==GCloud || ev.Tool==Wrangler) {
+		if IsStepLine(text,ev.Tool,*opts.Preset) {
+			return []byte("\x1b[2;3m"+strings.TrimRight(text,"\r\n")+"\x1b[0m"+text[len(strings.TrimRight(text,"\r\n")):])
+		}
+		colored:=HighlightWithPreset(text,ev.Tool,*opts.Preset,opts.SemanticColors)
+		if colored!=text{return []byte(colored)}
 	}
 	// Tool-aware spans take precedence over whole-line severity styling.
 	highlighted := highlightLineWithColors(text, opts.SemanticColors)

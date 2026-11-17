@@ -1,0 +1,33 @@
+# Semantic highlighting roles. Edit rules without changing Go code.
+[steps]
+enabled = true
+italic = true
+dimmed = true
+
+[diagnostics.card]
+enabled = true
+border = "rounded"
+max_width = 100
+
+[gcloud]
+enabled = true
+[gcloud.tokens]
+command = '\\(gcloud\\.[^)]+\\)'
+scope = '\\[[^\\]]+\\]'
+error_code = '\\b[A-Z][A-Z0-9_]{3,}\\b'
+
+[wrangler]
+enabled = true
+[wrangler.tokens]
+environment = '\\b[A-Z][A-Z0-9_]*\\b'
+error_code = '\\[code:\\s*\\d+\\]'
+
+[docker]
+enabled = true
+[docker.steps]
+FROM = "keyword"
+WORKDIR = "keyword"
+COPY = "keyword"
+RUN = "keyword"
+ENV = "keyword"
+ARG = "keyword"

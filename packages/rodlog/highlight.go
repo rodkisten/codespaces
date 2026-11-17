@@ -38,11 +38,15 @@ func highlightLine(s string) string {
 }
 
 func highlightLineWithColors(s string, palette SemanticColors) string {
+	return highlightWithRules(s,palette,diagnosticRules)
+}
+
+func highlightWithRules(s string, palette SemanticColors, rules []highlightRule) string {
 	if s == "" {
 		return s
 	}
 	spans := make([]highlightSpan, 0, 8)
-	for _, rule := range diagnosticRules {
+	for _, rule := range rules {
 		for _, pair := range rule.expression.FindAllStringIndex(s, 64) {
 			spans = append(spans, highlightSpan{pair[0], pair[1], semanticRuleColor(rule.color, palette), rule.priority})
 		}
