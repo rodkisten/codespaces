@@ -48,13 +48,13 @@ func TestOutputExamples(t *testing.T) {
 			}
 
 			if tt.tool == Docker {
-			plain := ansi.ReplaceAllString(output.String(), "")
-			if !strings.Contains(plain, "STEP 1") || !strings.Contains(plain, "RUN npm ci") || !strings.Contains(plain, "ERROR: failed to solve") {
-				t.Fatalf("Docker output lost step cards or diagnostics: %q", plain)
+				plain := ansi.ReplaceAllString(output.String(), "")
+				if !strings.Contains(plain, "STEP 1") || !strings.Contains(plain, "RUN npm ci") || !strings.Contains(plain, "ERROR: failed to solve") {
+					t.Fatalf("Docker output lost step cards or diagnostics: %q", plain)
+				}
 			}
-		}
 
-		if !strings.Contains(output.String(), "\x1b[") {
+			if !strings.Contains(output.String(), "\x1b[") {
 				t.Fatalf("expected ANSI highlighting for %s", tt.tool)
 			}
 

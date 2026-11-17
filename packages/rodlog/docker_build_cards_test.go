@@ -49,3 +49,15 @@ func TestDockerLegacyStepCards(t *testing.T) {
 		t.Fatalf("legacy header: %q", got)
 	}
 }
+
+func TestDockerStepStatusMapping(t *testing.T) {
+	steps := newDockerBuildSteps()
+	steps.format("#23 [builder 1/2] RUN npm ci\n")
+	got, ok := steps.format("#23 DONE 4.2s\n")
+	if !ok || !strings.Contains(got, "STEP 1") || !strings.Contains(got, "DONE") || !strings.Contains(got, "4.2s") {
+		t.Fatalf("status not mapped to step: %q", got)
+	}
+	if _, ok := steps.format("#99 DONE 1.0s\n"); ok {
+		t.Fatal("unknown step status must preserve original output")
+	}
+}
