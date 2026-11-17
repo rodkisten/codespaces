@@ -148,6 +148,20 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 		buildSteps.separator = e.Options.DockerSeparator
 	}
 	var npmLines []string
+	var diagnosticLines []string
+	var diagnosticTool Tool
+	flushDiagnostic := func() error {
+		if len(diagnosticLines)==0{return nil}
+		lines:=diagnosticLines
+		diagnosticLines=nil
+		if e.Options.Preset!=nil && e.Options.Preset.Diagnostics.Card.Enabled {
+			_,err:=io.WriteString(dst,RenderDiagnosticCard(ParseDiagnosticCard(diagnosticTool,lines),e.Options))
+			return err
+		}
+		_,err:=io.WriteString(dst,strings.Join(lines,""))
+		return err
+	}
+
 	flushNPM := func() error {
 		if len(npmLines)==0 { return nil }
 		lines:=npmLines
@@ -162,6 +176,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 	for {
 		if err := ctx.Err(); err != nil {
 			_ = flushNPM()
+			_ = flushDiagnostic()
 			return err
 		}
 		line, err := reader.ReadSlice('\n')
@@ -178,6 +193,23 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 				}
 			}
 			if err:=flushNPM();err!=nil{return fmt.Errorf("write npm card: %w",err)}
+			if e.Options.Mode==Transform && e.Options.Color && e.Renderer==nil && e.Options.Preset!=nil && e.Options.Preset.Diagnostics.Card.Enabled {
+				candidate:=e.Options.Tool
+				if candidate==Auto {candidate=current;if detected:=Detect(text);detected!=Generic {candidate=detected}}
+				if candidate==GCloud || candidate==Wrangler {
+					clean:=strings.TrimSpace(text)
+					start:=candidate==GCloud && strings.HasPrefix(clean,"ERROR:") || candidate==Wrangler && (strings.Contains(clean,"[ERROR]") || strings.HasPrefix(clean,"ERROR:"))
+					continuation:=len(diagnosticLines)>0 && diagnosticTool==candidate && !start && (strings.HasPrefix(text," ") || strings.HasPrefix(text,"\\t") || candidate==Wrangler && (strings.Contains(strings.ToLower(clean),"authenticated") || strings.Contains(clean,"wrangler login")))
+					if start {
+						if err:=flushDiagnostic();err!=nil{return err}
+						diagnosticTool=candidate
+						diagnosticLines=[]string{text}
+						continue
+					}
+					if continuation && len(diagnosticLines)<80 && len(strings.Join(diagnosticLines,""))+len(text)<=65536 {diagnosticLines=append(diagnosticLines,text);continue}
+				}
+			}
+			if err:=flushDiagnostic();err!=nil{return fmt.Errorf("write diagnostic card: %w",err)}
 			if e.Options.Tool != Auto {
 				current = e.Options.Tool
 			} else if detected := Detect(text); detected != Generic {
@@ -234,6 +266,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 		}
 		if err == io.EOF {
 			if flushErr:=flushNPM();flushErr!=nil{return flushErr}
+			if flushErr:=flushDiagnostic();flushErr!=nil{return flushErr}
 			if e.Options.Mode == Transform && e.Renderer == nil && e.Options.Color && counts[Error]+counts[Warning] > 0 {
 				groups := make([]string, 0, len(grouped))
 				for name := range grouped {
