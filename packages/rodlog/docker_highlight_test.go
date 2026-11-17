@@ -9,7 +9,7 @@ import (
 func TestDockerSemanticHighlight(t *testing.T) {
 	input := "api-1 | 2026-11-16T12:00:00Z health: unhealthy\n"
 	got := string(Render(Event{Tool: Docker, Level: Info, Text: input}, Options{Mode: Enhance, Color: true}))
-	if !strings.Contains(got, "api-1 | 2026-11-16T12:00:00Z ") || !strings.Contains(got, "\x1b[31munhealthy\x1b[0m") {
+	if !strings.Contains(got, "api-1 | 2026-11-16T12:00:00Z ") || !strings.Contains(got, "\x1b[31mhealth: unhealthy\x1b[0m") {
 		t.Fatalf("unexpected Docker highlighting: %q", got)
 	}
 	if raw := string(Render(Event{Tool: Docker, Text: input}, Options{Mode: Raw, Color: true})); raw != input {
@@ -32,13 +32,13 @@ func TestDockerfileSyntaxDetection(t *testing.T) {
 // BuildKit statuses should be legible while step numbers and timing survive.
 func TestDockerBuildSteps(t *testing.T) {
 	cases := []struct {
-		line string
+		line    string
 		colored string
 	}{
-		{"#12 CACHED\\n", "\\x1b[2mCACHED\\x1b[0m"},
-		{"#13 DONE 0.4s\\n", "\\x1b[32mDONE\\x1b[0m"},
-		{"#14 ERROR: process exited\\n", "\\x1b[31mERROR\\x1b[0m"},
-		{"#15 [stage-0 2/3] exporting layers\\n", "\\x1b[36m#15 [stage-0 2/3] exporting\\x1b[0m"},
+		{"#12 CACHED\n", "\x1b[2mCACHED\x1b[0m"},
+		{"#13 DONE 0.4s\n", "\x1b[32mDONE\x1b[0m"},
+		{"#14 ERROR: process exited\n", "\x1b[31mERROR\x1b[0m"},
+		{"#15 [stage-0 2/3] exporting layers\n", "\x1b[36m#15 [stage-0 2/3] exporting\x1b[0m"},
 	}
 	for _, tc := range cases {
 		got := string(Render(Event{Tool: Docker, Text: tc.line}, Options{Mode: Enhance, Color: true}))
