@@ -19,17 +19,17 @@ type Diagnostic struct {
 }
 
 var (
-	tsLocation     = regexp.MustCompile(`^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$`)
-	tsColon        = regexp.MustCompile(`^(.+?):(\d+):(\d+)\s*[-:]\s*(error|warning)\s+(TS\d+):\s*(.+)$`)
-	tsPlain        = regexp.MustCompile(`^(error|warning)\s+(TS\d+):\s*(.+)$`)
-	npmPrefix      = regexp.MustCompile(`(?i)^npm\s+(ERR!|error|WARN|warn|notice)\s*(.*)$`)
-	gcloudPrefix   = regexp.MustCompile(`^(ERROR|WARNING):\s*(?:\(gcloud(?:\.[^)]+)?\)\s*)?(.+)$`)
-	dockerPrefix   = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
-	dockerLocation = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
-	wranglerPrefix = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
+	tsLocation      = regexp.MustCompile(`^(.+?)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s*(.+)$`)
+	tsColon         = regexp.MustCompile(`^(.+?):(\d+):(\d+)\s*[-:]\s*(error|warning)\s+(TS\d+):\s*(.+)$`)
+	tsPlain         = regexp.MustCompile(`^(error|warning)\s+(TS\d+):\s*(.+)$`)
+	npmPrefix       = regexp.MustCompile(`(?i)^npm\s+(ERR!|error|WARN|warn|notice)\s*(.*)$`)
+	gcloudPrefix    = regexp.MustCompile(`^(ERROR|WARNING):\s*(?:\(gcloud(?:\.[^)]+)?\)\s*)?(.+)$`)
+	dockerPrefix    = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
+	dockerLocation  = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
+	wranglerPrefix  = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
 	vitestFailure   = regexp.MustCompile(`^\s*(?:❯|✖|×)\s+(.+)$`)
 	nodeTestFailure = regexp.MustCompile(`^\s*(?:✖\s+|not ok\s+\d+\s*-\s*)(.+)$`)
-	wranglerError  = regexp.MustCompile(`(?i)^(?:✘\s*)?(?:error|warning):\s*(.+)$`)
+	wranglerError   = regexp.MustCompile(`(?i)^(?:✘\s*)?(?:error|warning):\s*(.+)$`)
 )
 
 // ParseDiagnostic extracts stable fields from tool-specific error formats.
