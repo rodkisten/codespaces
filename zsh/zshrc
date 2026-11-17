@@ -80,3 +80,15 @@ function edit() {
 if [[ "${ROD_LOAD_LOCAL_ZSHRC:-1}" == "1" && -f "$HOME/.zshrc.local" ]]; then
   source "$HOME/.zshrc.local"
 fi
+
+# rodlog wraps selected external CLIs in the interactive shell. This is
+# intentionally not a preexec hook: Zsh cannot transparently rewrite every
+# arbitrary command/pipeline without changing quoting, TTY or exit behavior.
+# Set RODLOG_WRAP_COMMANDS='' to disable or override with a comma-separated list.
+if [[ -o interactive && -f "$HOME/.config/rodlog/hook.sh" ]]; then
+  export RODLOG_WRAP_COMMANDS="${RODLOG_WRAP_COMMANDS-gcloud,docker,npm,tsc,wrangler}"
+  source "$HOME/.config/rodlog/hook.sh"
+elif [[ -o interactive && -f "${CODESPACE_VSCODE_FOLDER:-$PWD}/packages/rodlog/scripts/shell-hook.sh" ]]; then
+  export RODLOG_WRAP_COMMANDS="${RODLOG_WRAP_COMMANDS-gcloud,docker,npm,tsc,wrangler}"
+  source "${CODESPACE_VSCODE_FOLDER:-$PWD}/packages/rodlog/scripts/shell-hook.sh"
+fi

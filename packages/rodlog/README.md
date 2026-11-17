@@ -239,3 +239,7 @@ BuildKit output from `docker build --progress=plain` and `docker compose build -
 rodlog exec --tool=docker --color=always -- docker build --progress=plain .
 rodlog exec --tool=docker --color=always -- docker compose build --progress=plain
 ```
+
+## 🪝 Codespaces automatic installation and shell wrappers
+
+The repository's `scripts/bootstrap.sh create|start` builds `rodlog` into `~/.local/bin` from the checked-out Go source (when Go is installed). The interactive `zsh/zshrc` loads the existing shell hook and enables conservative wrappers for `gcloud,docker,npm,tsc,wrangler`. Existing aliases/functions are respected. Use `RODLOG_BOOT_INSTALL=0` to skip building or `RODLOG_WRAP_COMMANDS=''` to disable wrappers. For any other command use `rlog <command> ...` explicitly. This is **not** a universal transparent interceptor: arbitrary pipelines, shell builtins and redirected commands cannot be safely intercepted without altering shell semantics.

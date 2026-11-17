@@ -40,6 +40,27 @@ if [[ "$phase" == create || "$phase" == start ]]; then
     echo "WARN: rod-check script missing; skipping"
   fi
 fi
+# Install rodlog from this checkout when Go is available. Avoid a remote
+# release dependency at boot: the shell always matches the checked-out source.
+# A failed optional build must never make the Codespace unusable.
+if [[ "$phase" == create || "$phase" == start ]]; then
+  repo="${CODESPACE_VSCODE_FOLDER:-$PWD}"
+  if [[ "${RODLOG_BOOT_INSTALL:-1}" != 0 && -f "$repo/packages/rodlog/go.mod" ]]; then
+    if command -v go >/dev/null 2>&1; then
+      mkdir -p "$HOME/.local/bin"
+      echo "[RUN] rodlog: building from $repo/packages/rodlog"
+      if (cd "$repo/packages/rodlog" && go build -o "$HOME/.local/bin/rodlog" ./cmd/rodlog); then
+        echo "[OK] rodlog installed: $HOME/.local/bin/rodlog"
+      else
+        echo "[WARN] rodlog build failed; existing binary, if any, remains available"
+      fi
+    else
+      echo "[SKIP] rodlog: Go toolchain not available"
+    fi
+  else
+    echo "[SKIP] rodlog: disabled or source unavailable"
+  fi
+fi
 if [[ "$phase" == create || "$phase" == start ]]; then
   if command -v mobile-doctor >/dev/null 2>&1; then
     mobile-doctor || echo "WARN: doctor reported missing tools"

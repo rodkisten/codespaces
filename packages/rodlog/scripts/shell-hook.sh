@@ -16,7 +16,7 @@ _rodlog_wrap() {
   _rodlog_executable=$(command -v "$1") || return 0
   case "$_rodlog_executable" in /*) ;; *) return 0 ;; esac
   # The allowlist above prevents arbitrary code injection through eval.
-  eval "$1() { rodlog exec --tool=$1 -- \"$_rodlog_executable\" \"\$@\"; }"
+  eval "$1() { rodlog exec -- \"$_rodlog_executable\" \"\$@\"; }"
   unset _rodlog_executable
 }
 
