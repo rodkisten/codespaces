@@ -38,9 +38,9 @@ func RenderNPMCard(lines []string, opts Options) string {
  d:=ParseNPMDiagnostic(lines)
  title:=lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")).Render(iconOrDefault(opts.DiagnosticIcons.Error,"✖")+" NPM ERROR")
  body:=[]string{title}
- if d.Message!="" {for _,line:=range wrapCardText(d.Message,width-6) {body=append(body,lipgloss.NewStyle().Bold(true).Render(line))}}
- for _,detail:=range uniqueCardDetails(d.Message,d.Details) {body=append(body,wrapCardText(detail,width-6)...)}
- if d.Suggestion!="" {for _,line:=range wrapCardText("$ "+d.Suggestion,width-6) {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(line))}}
- if d.LogPath!="" {body=append(body,"Debug log:");for _,line:=range wrapCardText(d.LogPath,width-6) {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(line))}}
+ if d.Message!="" {for _,line:=range cardLines(d.Message,width) {body=append(body,lipgloss.NewStyle().Bold(true).Render(line))}}
+ for _,detail:=range uniqueCardDetails(d.Message,d.Details) {body=append(body,cardLines(detail,width)...)}
+ if d.Suggestion!="" {for _,line:=range cardLines("$ "+d.Suggestion,width) {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(line))}}
+ if d.LogPath!="" {body=append(body,"Debug log:");for _,line:=range cardLines(d.LogPath,width) {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(line))}}
  return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("9")).Padding(0,1).Width(width-4).MaxWidth(width).Render(strings.Join(body,"\n"))+"\n"
 }

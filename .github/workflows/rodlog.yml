@@ -48,6 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           export COLUMNS=90
+          export RODLOG_CARD_WIDTH=36
           for tool in npm typescript gcloud wrangler docker; do
             fixture="testdata/preview/${tool}.log"
             printf '\n%s\n' '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'

@@ -9,9 +9,12 @@ import (
 
 // cardWidth caps physical output, rather than relying on the CI viewer to wrap it.
 func cardWidth(opts Options) int {
- width:=58
- if n,err:=strconv.Atoi(os.Getenv("COLUMNS"));err==nil && n>=30 && n<width {width=n}
- if opts.Preset!=nil && opts.Preset.Diagnostics.Card.MaxWidth>=30 && opts.Preset.Diagnostics.Card.MaxWidth<width {width=opts.Preset.Diagnostics.Card.MaxWidth}
+ // GitHub Actions mobile shows fewer columns than the CI runner reports.
+ // Keep the default safe for a narrow phone; allow explicit opt-in overrides.
+ width:=36
+ if n,err:=strconv.Atoi(os.Getenv("RODLOG_CARD_WIDTH"));err==nil && n>=24 && n<=160 {width=n}
+ if n,err:=strconv.Atoi(os.Getenv("COLUMNS"));err==nil && n>=24 && n<width {width=n}
+ if opts.Preset!=nil && opts.Preset.Diagnostics.Card.MaxWidth>=24 && opts.Preset.Diagnostics.Card.MaxWidth<width {width=opts.Preset.Diagnostics.Card.MaxWidth}
  return width
 }
 
@@ -56,4 +59,10 @@ func uniqueCardDetails(message string, details []string) []string {
   result=append(result,detail)
  }
  return result
+}
+
+// cardLines wraps every field, including API names and error codes, before
+// Lip Gloss adds padding and borders. This avoids viewer-side reflow.
+func cardLines(value string, width int) []string {
+ return wrapCardText(value,width-4)
 }

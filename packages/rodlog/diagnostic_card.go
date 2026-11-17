@@ -85,11 +85,11 @@ func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  color:=lipgloss.Color("9")
  title:=lipgloss.NewStyle().Bold(true).Foreground(color).Render(iconOrDefault(opts.DiagnosticIcons.Error,"✖")+" "+d.Title)
  lines:=[]string{title}
- if d.API!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render("API: "+d.API))}
- if d.Code!="" {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render("Code: "+d.Code))}
- if d.Message!="" {for _,part:=range wrapCardText(d.Message,width-6) {lines=append(lines,HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors))}}
- for _,detail:=range uniqueCardDetails(d.Message,d.Details) {for _,part:=range wrapCardText(detail,width-6) {lines=append(lines,HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors))}}
- if len(d.Fixes)>0 {lines=append(lines,"Possible fixes:");for _,fix:=range uniqueCardDetails("",d.Fixes) {lines=append(lines,wrapCardText("› "+fix,width-6)... )}}
+ if d.API!="" {for _,part:=range cardLines("API: "+d.API,width) {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(part))}}
+ if d.Code!="" {for _,part:=range cardLines("Code: "+d.Code,width) {lines=append(lines,lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(part))}}
+ if d.Message!="" {for _,part:=range cardLines(d.Message,width) {lines=append(lines,HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors))}}
+ for _,detail:=range uniqueCardDetails(d.Message,d.Details) {for _,part:=range cardLines(detail,width) {lines=append(lines,HighlightWithPreset(part,d.Tool,*opts.Preset,opts.SemanticColors))}}
+ if len(d.Fixes)>0 {lines=append(lines,"Possible fixes:");for _,fix:=range uniqueCardDetails("",d.Fixes) {lines=append(lines,cardLines("› "+fix,width)... )}}
  style:=lipgloss.NewStyle().Padding(0,1).Width(width-4).MaxWidth(width)
  switch opts.Preset.Diagnostics.Card.Border {
  case "none": // no border
