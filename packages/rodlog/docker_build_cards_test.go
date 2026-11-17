@@ -70,3 +70,15 @@ func TestDockerBuildStatusError(t *testing.T) {
 		t.Fatalf("error status lost: %q", got)
 	}
 }
+
+func TestDockerCustomSeparator(t *testing.T) {
+	input := "#1 [build 1/2] RUN echo hello\n"
+	var output bytes.Buffer
+	engine := New(Options{Mode: Enhance, Tool: Docker, Color: true, DockerSeparator: "===="})
+	if err := engine.Process(context.Background(), strings.NewReader(input), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "====") || strings.Contains(output.String(), "────") {
+		t.Fatalf("custom divider not applied: %q", output.String())
+	}
+}

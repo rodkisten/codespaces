@@ -54,6 +54,8 @@ type Options struct {
 	Tool    Tool
 	Color   bool
 	MaxLine int
+	// DockerSeparator replaces the default 36-character BuildKit divider.
+	DockerSeparator string
 }
 type Renderer interface{ Render(Event) ([]byte, error) }
 type Engine struct {
@@ -127,6 +129,9 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 	grouped := map[string]map[Level]int{}
 	lastGroup := ""
 	buildSteps := newDockerBuildSteps()
+	if e.Options.DockerSeparator != "" {
+		buildSteps.separator = e.Options.DockerSeparator
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err

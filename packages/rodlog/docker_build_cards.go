@@ -10,10 +10,11 @@ import (
 type dockerBuildSteps struct {
 	numbers map[string]int
 	next    int
+	separator string
 }
 
 func newDockerBuildSteps() *dockerBuildSteps {
-	return &dockerBuildSteps{numbers: make(map[string]int)}
+	return &dockerBuildSteps{numbers: make(map[string]int), separator: strings.Repeat("─", 36)}
 }
 
 var buildKitHeader = regexp.MustCompile(`^#(\d+)\s+\[([^]]+)\]\s+(.+?)(?:\r?\n)?$`)
@@ -56,5 +57,5 @@ func (s *dockerBuildSteps) format(text string) (string, bool) {
 		colored = strings.TrimRight(highlighted, "\r\n")
 	}
 	// The separator is intentionally fixed until TOML configuration lands.
-	return fmt.Sprintf("%s  %s\n\x1b[2m%s\x1b[0m\n", badge, colored, strings.Repeat("─", 36)), true
+	return fmt.Sprintf("%s  %s\n\x1b[2m%s\x1b[0m\n", badge, colored, s.separator), true
 }
