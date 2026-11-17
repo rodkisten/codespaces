@@ -184,8 +184,8 @@ func TestEngineDockerHexColors(t *testing.T) {
 	input := "#8 [build 1/2] RUN echo hello\n#8 DONE 1.2s\n"
 	var output bytes.Buffer
 	engine := New(Options{
-		Mode: Enhance,
-		Tool: Docker,
+		Mode:  Enhance,
+		Tool:  Docker,
 		Color: true,
 		DockerColors: DockerColors{
 			BadgeBackground: "#0C2238",

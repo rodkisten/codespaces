@@ -36,6 +36,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	mode := flags.String("mode", env("RODLOG_MODE", "enhance"), "raw|enhance|transform")
 	tool := flags.String("tool", env("RODLOG_TOOL", "auto"), "auto|npm|typescript|gcloud|wrangler|docker|vitest|node-test")
 	dockerSeparator := flags.String("docker-separator", env("RODLOG_DOCKER_SEPARATOR", ""), "divider shown beneath Docker BuildKit step cards")
+	dockerBadgeBG := flags.String("docker-badge-bg", env("RODLOG_DOCKER_BADGE_BG", ""), "Docker badge background (#RRGGBB or ANSI SGR)")
+	dockerBadgeText := flags.String("docker-badge-text", env("RODLOG_DOCKER_BADGE_TEXT", ""), "Docker badge text color")
+	dockerDone := flags.String("docker-done", env("RODLOG_DOCKER_DONE", ""), "Docker DONE status color")
+	dockerCached := flags.String("docker-cached", env("RODLOG_DOCKER_CACHED", ""), "Docker CACHED status color")
+	dockerError := flags.String("docker-error", env("RODLOG_DOCKER_ERROR", ""), "Docker ERROR status color")
+	dockerDivider := flags.String("docker-divider-color", env("RODLOG_DOCKER_DIVIDER_COLOR", ""), "Docker divider color")
 	jsonOutput := flags.Bool("json", false, "request JSON for allowlisted commands and show a summary table in transform mode")
 	color := flags.String("color", env("RODLOG_COLOR", "auto"), "auto|always|never")
 	output := flags.String("output", env("RODLOG_OUTPUT", "terminal"), "terminal|jsonl|github")
@@ -61,7 +67,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	// Auto-color avoids escape codes in redirected output and respects NO_COLOR.
 	enableColor := *color == "always" || (*color == "auto" && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb" && isTerminal(stdout))
-	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor, DockerSeparator: *dockerSeparator})
+	dockerColors, colorErr := rodlog.ParseDockerColors(rodlog.DockerColors{
+		BadgeBackground: *dockerBadgeBG,
+		BadgeText:       *dockerBadgeText,
+		Done:            *dockerDone,
+		Cached:          *dockerCached,
+		Error:           *dockerError,
+		Separator:       *dockerDivider,
+	})
+	if colorErr != nil {
+		fmt.Fprintln(stderr, colorErr)
+		return 2
+	}
+	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor, DockerSeparator: *dockerSeparator, DockerColors: dockerColors})
 	switch *output {
 	case "jsonl":
 		engine.Renderer = rodlog.JSONLRenderer{}

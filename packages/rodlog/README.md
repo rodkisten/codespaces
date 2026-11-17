@@ -255,3 +255,11 @@ BuildKit status recognition now uses correct Go regexp escapes. Active operation
 ### Vite-style BuildKit step headers
 
 When color is enabled, Dockerfile instruction headers become muted-background `STEP N` badges with Chroma syntax highlighting (original text fallback), followed by a subtle separator. Repeated headers are preserved as raw text rather than silently discarded; BuildKit status and timing lines remain visible. Raw and no-color modes preserve original bytes. Separator customization via TOML is planned.
+
+### Docker card colors
+
+Customize each Docker card color with CLI flags (`--docker-badge-bg`, `--docker-badge-text`, `--docker-done`, `--docker-cached`, `--docker-error`, `--docker-divider-color`) or corresponding `RODLOG_DOCKER_*` environment variables. Each value accepts `#RRGGBB` or ANSI SGR parameters. CLI flags override environment variables; invalid colors produce exit code 2 with an explanation. Example:
+
+```sh
+rodlog --tool docker --color always --docker-badge-bg '#0C2238' --docker-done '#4ADE80'
+```
