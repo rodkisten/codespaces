@@ -26,3 +26,32 @@ func TestExecExitCode(t *testing.T) {
 		t.Fatalf("code=%d out=%q err=%q", code, out.String(), errs.String())
 	}
 }
+
+func TestDockerSeparatorFlag(t *testing.T) {
+	input := "#7 [build 1/2] RUN echo hello\n"
+	var out, errs bytes.Buffer
+	status := run([]string{"--tool=docker", "--color=always", "--docker-separator=++++"}, strings.NewReader(input), &out, &errs)
+	if status != 0 || !strings.Contains(out.String(), "++++") {
+		t.Fatalf("status=%d output=%q error=%q", status, out.String(), errs.String())
+	}
+}
+
+func TestDockerSeparatorEnvironment(t *testing.T) {
+	t.Setenv("RODLOG_DOCKER_SEPARATOR", "~~~~")
+	input := "#7 [build 1/2] RUN echo hello\n"
+	var out, errs bytes.Buffer
+	status := run([]string{"--tool=docker", "--color=always"}, strings.NewReader(input), &out, &errs)
+	if status != 0 || !strings.Contains(out.String(), "~~~~") {
+		t.Fatalf("status=%d output=%q error=%q", status, out.String(), errs.String())
+	}
+}
+
+func TestDockerSeparatorFlagOverridesEnvironment(t *testing.T) {
+	t.Setenv("RODLOG_DOCKER_SEPARATOR", "ENV-DIVIDER")
+	input := "#7 [build 1/2] RUN echo hello\n"
+	var out, errs bytes.Buffer
+	status := run([]string{"--tool=docker", "--color=always", "--docker-separator=FLAG-DIVIDER"}, strings.NewReader(input), &out, &errs)
+	if status != 0 || !strings.Contains(out.String(), "FLAG-DIVIDER") || strings.Contains(out.String(), "ENV-DIVIDER") {
+		t.Fatalf("status=%d output=%q error=%q", status, out.String(), errs.String())
+	}
+}
