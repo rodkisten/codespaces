@@ -4,6 +4,7 @@ import (
  "os"
  "regexp"
  "strconv"
+ "unicode/utf8"
  "strings"
 
  "github.com/charmbracelet/lipgloss"
@@ -54,6 +55,19 @@ func ParseDiagnosticCard(tool Tool, lines []string) DiagnosticCard {
   }
  }
  if d.Title=="" {d.Title=strings.ToUpper(string(tool))+" ERROR"}
+ // A structured code appears once in the heading, never again in its message.
+ if d.Code!="" {d.Message=strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(d.Message),d.Code+":"))}
+ d.Message=cleanCardText(d.Message)
+ seen:=map[string]bool{}
+ if d.Message!="" {seen[strings.ToLower(d.Message)]=true}
+ details:=make([]string,0,len(d.Details))
+ for _,detail:=range d.Details {
+  detail=cleanCardText(detail)
+  if detail=="" || seen[strings.ToLower(detail)] {continue}
+  seen[strings.ToLower(detail)]=true
+  details=append(details,detail)
+ }
+ d.Details=details
  if tool==Wrangler && strings.Contains(strings.ToLower(strings.Join(lines,"\n")),"not authenticated") {
   d.Fixes=append(d.Fixes,"Run wrangler login to authenticate")
  }
@@ -61,6 +75,35 @@ func ParseDiagnosticCard(tool Tool, lines []string) DiagnosticCard {
   d.Fixes=append(d.Fixes,"Verify IAM permissions and the active gcloud account")
  }
  return d
+}
+
+// cleanCardText conservatively normalizes whitespace, retaining meaningful wording.
+func cleanCardText(s string) string {
+ return strings.Join(strings.Fields(strings.TrimSpace(s))," ")
+}
+
+// cardWrap breaks long words and sentences at UTF-8 rune boundaries so that
+// GitHub Actions does not split borders independently of the contents.
+func cardWrap(s string, width int) string {
+ if width<1{return s}
+ var lines []string
+ for _,part:=range strings.Split(s,"\n") {
+  var current strings.Builder
+  for _,word:=range strings.Fields(part) {
+   for utf8.RuneCountInString(word)>width {
+    if current.Len()>0 {lines=append(lines,current.String());current.Reset()}
+    r:=[]rune(word)
+    lines=append(lines,string(r[:width]))
+    word=string(r[width:])
+   }
+   if word==""{continue}
+   if current.Len()>0 && utf8.RuneCountInString(current.String())+1+utf8.RuneCountInString(word)>width {lines=append(lines,current.String());current.Reset()}
+   if current.Len()>0 {current.WriteByte(' ')}
+   current.WriteString(word)
+  }
+  lines=append(lines,current.String())
+ }
+ return strings.Join(lines,"\n")
 }
 
 func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
@@ -85,6 +128,6 @@ func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  case "normal":style=style.Border(lipgloss.NormalBorder()).BorderForeground(color)
  default:style=style.Border(lipgloss.RoundedBorder()).BorderForeground(color)
  }
- content:=lipgloss.NewStyle().Width(width-6).Render(strings.Join(lines,"\n"))
+ content:=lipgloss.NewStyle().Width(width-6).Render(cardWrap(strings.Join(lines,"\n"),width-6))
  return style.Render(content)+"\n"
 }
