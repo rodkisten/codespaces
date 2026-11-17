@@ -232,3 +232,27 @@ exec zsh
 
 Configure `~/.config/rod-notify/config` com `ROD_NOTIFY_URL` e `ROD_NOTIFY_TOKEN` (veja a seção Rod Notify).
 
+
+## 💜 Rod Prompt Neon: rounded + pontinhos full-width
+
+Tema Zsh de duas linhas, com **pasta violeta**, **repositório e branch ciano**, **status verde ou coral** e separador `······` dimmed até a largura do terminal. Sem Powerlevel10k, sem Nerd Fonts e sem `git status` pesado. Exibe código de saída do comando anterior.
+
+```text
+~/code/photointel · main ·····························
+╰─ $ 
+~/code/photointel · main ·····························
+╰─ $ ✕ 127
+```
+
+**Debian:** `debian/install.sh` instala/atualiza automaticamente o tema e adiciona uma linha de `source` ao `~/.zshrc` existente. Reabra o Zsh com `exec zsh`. O arquivo é `~/.config/zsh/rod-prompt.zsh`.
+
+**Codespaces:** o tema substitui o `rod-mobile` anterior e também é atualizado pelo `install.sh --shell --force` ou pelo instalador do devcontainer. Para instalar só o tema na VM já existente:
+
+```bash
+mkdir -p ~/.config/zsh
+curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/.devcontainer/zsh/rod-mobile.zsh-theme -o ~/.config/zsh/rod-prompt.zsh
+grep -Fq 'source "$HOME/.config/zsh/rod-prompt.zsh"' ~/.zshrc || printf '\nsource "$HOME/.config/zsh/rod-prompt.zsh"\n' >> ~/.zshrc
+exec zsh
+```
+
+Variáveis opcionais antes do `source`: `ROD_PROMPT_DOTS=0` (sem separador), `ROD_PROMPT_SHOW_BRANCH=0`, `ROD_PROMPT_SHOW_REPO=0`. O comprimento da linha acompanha `COLUMNS`, inclusive após redimensionamento. Nomes de diretórios com caracteres de largura especial podem apresentar pequenas diferenças visuais em terminais distintos.
