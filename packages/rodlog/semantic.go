@@ -27,6 +27,7 @@ var (
 	dockerPrefix    = regexp.MustCompile(`(?i)^(?:ERROR:\s*)?(?:failed to solve|failed to compute cache key|dockerfile parse error):\s*(.+)$`)
 	dockerLocation  = regexp.MustCompile(`(?i)^Dockerfile:(\d+)(?::(\d+))?\b`)
 	wranglerPrefix  = regexp.MustCompile(`^(?:✘\s*)?\[(ERROR|WARNING)\]\s*(.+)$`)
+	runnerAssertion  = regexp.MustCompile(`(?i)^(?:AssertionError:\s*)?expected\s+(.+?)\s+to\s+(?:deeply\s+)?(?:equal|be)\s+(.+?)\.?$`)
 	vitestFailure   = regexp.MustCompile(`^\s*(?:❯|✖|×)\s+(.+)$`)
 	nodeTestFailure = regexp.MustCompile(`^\s*(?:✖\s+|not ok\s+\d+\s*-\s*)(.+)$`)
 	wranglerError   = regexp.MustCompile(`(?i)^(?:✘\s*)?(?:error|warning):\s*(.+)$`)
@@ -101,14 +102,19 @@ func ParseDiagnostic(tool Tool, input string) *Diagnostic {
 			d.Message = line
 			return d
 		}
-	case Vitest:
-		// Only failure markers become diagnostic cards; successful tests remain logs.
-		if m := vitestFailure.FindStringSubmatch(line); m != nil {
-			d.Message = m[1]
+	case Vitest, NodeTest:
+		// Assertion messages are handled before runner-specific status markers.
+		// Capture both values without consuming multiline stack traces.
+		if m := runnerAssertion.FindStringSubmatch(line); m != nil {
+			d.Message = line
 			return d
 		}
-	case NodeTest:
-		if m := nodeTestFailure.FindStringSubmatch(line); m != nil {
+		if tool == Vitest {
+			if m := vitestFailure.FindStringSubmatch(line); m != nil {
+				d.Message = m[1]
+				return d
+			}
+		} else if m := nodeTestFailure.FindStringSubmatch(line); m != nil {
 			d.Message = m[1]
 			return d
 		}

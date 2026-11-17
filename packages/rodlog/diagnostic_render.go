@@ -67,8 +67,14 @@ func renderDiagnostic(d *Diagnostic) []byte {
 			out.WriteString(frame)
 		}
 	}
+	if d.Tool == Vitest || d.Tool == NodeTest {
+		if m := runnerAssertion.FindStringSubmatch(message); m != nil {
+			// Keep both sides explicit instead of relying on terminal color alone.
+			fmt.Fprintf(&out, "  \x1b[32mExpected: %s\x1b[0m\n  \x1b[31mReceived: %s\x1b[0m\n", m[2], m[1])
+		}
+	}
 	if explanation := diagnosticExplanation(d); explanation != "" {
-		fmt.Fprintf(&out, "  \\x1b[36m↳ %s\\x1b[0m\\n", explanation)
+		fmt.Fprintf(&out, "  \x1b[36m↳ %s\x1b[0m\n", explanation)
 	}
 	if suggestion := diagnosticSuggestion(d); suggestion != "" {
 		fmt.Fprintf(&out, "  \x1b[36m💡 %s\x1b[0m\n", suggestion)

@@ -222,3 +222,7 @@ rodlog exec --mode=transform --color=always -- npx tsc --noEmit
 ## 🧪 Test runner adapters (initial support)
 
 `rodlog exec --mode=transform --color=always -- npx vitest run` and `rodlog exec --mode=transform --color=always -- node --test` recognize common failed-test markers and turn them into diagnostic cards. `node --version` remains generic. This is a first step: assertion diffs, stack traces, summary counters and richer suite grouping are still on the [roadmap](docs/ROADMAP.md). Raw and no-color modes continue to preserve the source output.
+
+### Assertion mismatch cards
+
+In transform mode, single-line Vitest and Node assertions such as `AssertionError: expected 3 to be 4` show explicit **Expected: 4** and **Received: 3** labels, while retaining the original error text. This deliberately handles only a narrow, recognizable form; multi-line object diffs and stacks remain a follow-up.
