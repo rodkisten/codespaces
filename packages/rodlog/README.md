@@ -210,3 +210,11 @@ The fixtures under `testdata/` are **synthetic representative examples**, not ca
 📐 **Architecture walkthrough:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 🗺️ **Feature roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md), including TypeScript diagnostic cards, Vitest/Node tests, Docker runtime logs and Python tracebacks.
+
+## 🔎 TypeScript explanations (incremental)
+
+In `--mode=transform`, recognized TypeScript diagnostics now add a short semantic explanation for `TS2322`, `TS2345`, `TS2307`, `TS7006` and `TS18048`. For simple assignability messages, the card identifies the **expected** and **received** types. The original compiler message remains authoritative; complex types and multi-line messages are not yet fully parsed. Existing Chroma/Lip Gloss dependencies continue to handle generic highlighting and terminal styling.
+
+```bash
+rodlog exec --mode=transform --color=always -- npx tsc --noEmit
+```
