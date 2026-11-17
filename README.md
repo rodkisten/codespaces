@@ -148,3 +148,36 @@ Os resultados ficam em `RodCheck/AAAAmmddTHHMMSSZ/`, uma pasta **visível no Ter
 `rod-check` executa os scripts existentes `typecheck`, `lint`, `build`; `--full` acrescenta `test`, `check`, `validate`, `build/validate-changed.sh run` e `fallow audit`, quando disponíveis. Comandos ausentes são ignorados. Por padrão não instala dependências; `--install` permite `npm ci --ignore-scripts` quando existe lockfile. Verifique o pacote antes de compartilhá-lo: o mascaramento automático é limitado.
 
 Adicione `RodCheck/` ao `.gitignore` dos projetos onde executar o diagnóstico para evitar commits acidentais dos logs.
+
+## 🔔 Rod Notify: comandos demorados no Zsh
+
+Instalação independente, sem substituir seu tema, plugins ou configurações existentes:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/notify/install.sh | bash
+exec zsh
+```
+
+Configure o Relay no arquivo privado `~/.config/rod-notify/config`:
+
+```bash
+ROD_NOTIFY_URL="https://SEU-RELAY/notifications/send"
+ROD_NOTIFY_TOKEN="SEU_BEARER_TOKEN"
+```
+
+O endereço acima é um **exemplo**, não um endpoint confirmado. Use a URL HTTPS real do Relay e o token correspondente. O script envia JSON com `title` e `message`; adapte `notify/send.sh` caso a API exija outro formato.
+
+Opções para colocar no `~/.zshrc`, **antes** da linha que carrega `rod-notify.zsh`:
+
+| Variável | Padrão | Função |
+|---|---|---|
+| `ROD_NOTIFY_THRESHOLD` | `10` | Duração mínima em segundos |
+| `ROD_NOTIFY_SUCCESS` | `1` | Notificar sucesso |
+| `ROD_NOTIFY_FAILURE` | `1` | Notificar erro |
+| `ROD_NOTIFY_IGNORE_INTERACTIVE` | `1` | Ignorar SSH, editores, paginadores e monitores |
+| `ROD_NOTIFY_HOSTNAME` | `1` | Reservado para identificação da máquina |
+
+Teste: `sleep 11` e depois `false` (este último só notifica se exceder o limite). Para testar uma falha demorada: `sleep 11; false` executado como um único comando de linha.
+
+**Segurança:** o comando completo não é enviado, apenas o primeiro token, nome do diretório, duração e código de saída. Não versionar o arquivo de configuração. O envio é assíncrono, com timeout de 8 segundos; o terminal não aguarda a rede. A integração exige Zsh, curl e Python 3.
+
