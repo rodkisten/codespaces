@@ -263,3 +263,24 @@ Customize each Docker card color with CLI flags (`--docker-badge-bg`, `--docker-
 ```sh
 rodlog --tool docker --color always --docker-badge-bg '#0C2238' --docker-done '#4ADE80'
 ```
+
+### TOML configuration
+
+The optional default file is `~/.config/rodlog/config.toml` on Linux (resolved using Go's `os.UserConfigDir`). Use `--config path.toml` or `RODLOG_CONFIG` to select another file. Explicit missing files and unknown TOML fields are errors. Precedence: CLI > environment > TOML > built-in defaults.
+
+```toml
+mode = "enhance"
+tool = "auto"
+color = "auto"
+
+[docker]
+separator = "────────────────────"
+
+[docker.colors]
+badge_background = "#171923"
+badge_text = "#E8EAF0"
+done = "#4ADE80"
+cached = "#94A3B8"
+error = "#FB7185"
+separator = "#A78BFA"
+```

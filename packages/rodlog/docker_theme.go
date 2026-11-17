@@ -9,12 +9,12 @@ import (
 // DockerColors defines SGR sequences (without ESC[ and m) used by Docker cards.
 // Empty values inherit defaults, preserving the existing appearance.
 type DockerColors struct {
-	BadgeBackground string
-	BadgeText       string
-	Done            string
-	Cached          string
-	Error           string
-	Separator       string
+	BadgeBackground string `toml:"badge_background"`
+	BadgeText       string `toml:"badge_text"`
+	Done            string `toml:"done"`
+	Cached          string `toml:"cached"`
+	Error           string `toml:"error"`
+	Separator       string `toml:"separator"`
 }
 
 func DefaultDockerColors() DockerColors {

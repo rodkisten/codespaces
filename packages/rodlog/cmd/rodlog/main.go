@@ -31,20 +31,31 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if commandMode {
 		args = args[1:]
 	}
+	configPath, configErr := findConfigPath(args)
+	if configErr != nil {
+		fmt.Fprintln(stderr, configErr)
+		return 2
+	}
+	config, configErr := loadConfig(configPath)
+	if configErr != nil {
+		fmt.Fprintln(stderr, configErr)
+		return 2
+	}
 	flags := flag.NewFlagSet("rodlog", flag.ContinueOnError)
+	flags.String("config", configPath, "TOML configuration file")
 	flags.SetOutput(stderr)
-	mode := flags.String("mode", env("RODLOG_MODE", "enhance"), "raw|enhance|transform")
-	tool := flags.String("tool", env("RODLOG_TOOL", "auto"), "auto|npm|typescript|gcloud|wrangler|docker|vitest|node-test")
-	dockerSeparator := flags.String("docker-separator", env("RODLOG_DOCKER_SEPARATOR", ""), "divider shown beneath Docker BuildKit step cards")
-	dockerBadgeBG := flags.String("docker-badge-bg", env("RODLOG_DOCKER_BADGE_BG", ""), "Docker badge background (#RRGGBB or ANSI SGR)")
-	dockerBadgeText := flags.String("docker-badge-text", env("RODLOG_DOCKER_BADGE_TEXT", ""), "Docker badge text color")
-	dockerDone := flags.String("docker-done", env("RODLOG_DOCKER_DONE", ""), "Docker DONE status color")
-	dockerCached := flags.String("docker-cached", env("RODLOG_DOCKER_CACHED", ""), "Docker CACHED status color")
-	dockerError := flags.String("docker-error", env("RODLOG_DOCKER_ERROR", ""), "Docker ERROR status color")
-	dockerDivider := flags.String("docker-divider-color", env("RODLOG_DOCKER_DIVIDER_COLOR", ""), "Docker divider color")
+	mode := flags.String("mode", env("RODLOG_MODE", fallback(config.Mode, "enhance")), "raw|enhance|transform")
+	tool := flags.String("tool", env("RODLOG_TOOL", fallback(config.Tool, "auto")), "auto|npm|typescript|gcloud|wrangler|docker|vitest|node-test")
+	dockerSeparator := flags.String("docker-separator", env("RODLOG_DOCKER_SEPARATOR", config.Docker.Separator), "divider shown beneath Docker BuildKit step cards")
+	dockerBadgeBG := flags.String("docker-badge-bg", env("RODLOG_DOCKER_BADGE_BG", config.Docker.Colors.BadgeBackground), "Docker badge background (#RRGGBB or ANSI SGR)")
+	dockerBadgeText := flags.String("docker-badge-text", env("RODLOG_DOCKER_BADGE_TEXT", config.Docker.Colors.BadgeText), "Docker badge text color")
+	dockerDone := flags.String("docker-done", env("RODLOG_DOCKER_DONE", config.Docker.Colors.Done), "Docker DONE status color")
+	dockerCached := flags.String("docker-cached", env("RODLOG_DOCKER_CACHED", config.Docker.Colors.Cached), "Docker CACHED status color")
+	dockerError := flags.String("docker-error", env("RODLOG_DOCKER_ERROR", config.Docker.Colors.Error), "Docker ERROR status color")
+	dockerDivider := flags.String("docker-divider-color", env("RODLOG_DOCKER_DIVIDER_COLOR", config.Docker.Colors.Separator), "Docker divider color")
 	jsonOutput := flags.Bool("json", false, "request JSON for allowlisted commands and show a summary table in transform mode")
-	color := flags.String("color", env("RODLOG_COLOR", "auto"), "auto|always|never")
-	output := flags.String("output", env("RODLOG_OUTPUT", "terminal"), "terminal|jsonl|github")
+	color := flags.String("color", env("RODLOG_COLOR", fallback(config.Color, "auto")), "auto|always|never")
+	output := flags.String("output", env("RODLOG_OUTPUT", fallback(config.Output, "terminal")), "terminal|jsonl|github")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
