@@ -10,8 +10,14 @@ import (
 // SyntaxHighlight uses Chroma lexers for structured log payloads.
 // The existing diagnostic renderer remains the fallback for ordinary log lines.
 func SyntaxHighlight(text, language string) (string, error) {
+	return SyntaxHighlightWithTheme(text, language, SyntaxTheme{})
+}
+
+func SyntaxHighlightWithTheme(text, language string, theme SyntaxTheme) (string, error) {
 	var out strings.Builder
-	if err := quick.Highlight(&out, text, language, "terminal16m", "monokai"); err != nil {
+	style := theme.Style
+	if style == "" { style = "monokai" }
+	if err := quick.Highlight(&out, text, language, "terminal16m", style); err != nil {
 		return text, err
 	}
 	return out.String(), nil

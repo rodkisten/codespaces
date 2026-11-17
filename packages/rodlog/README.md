@@ -301,3 +301,21 @@ location = "#67E8F9"
 ```
 
 Semantic colors currently affect generic severity and token highlighting. Structured diagnostic cards and Chroma syntax palettes are separate future integration points.
+
+### Diagnostic icons and syntax theme
+
+Icons are configurable with TOML, `RODLOG_ICON_*` environment variables, or `--icon-error`, `--icon-warning`, `--icon-info`, `--icon-suggestion`, `--icon-explanation`. Control characters are rejected. The syntax style uses an existing Chroma style via `--syntax-style` / `RODLOG_SYNTAX_STYLE` / TOML; unknown styles fail validation. CLI > environment > TOML > defaults.
+
+```toml
+[icons]
+error = "✖"
+warning = "⚠"
+info = "ℹ"
+suggestion = "💡"
+explanation = "↳"
+
+[syntax]
+style = "monokai"
+```
+
+Syntax customization currently selects a Chroma style; per-token overrides are not yet implemented.

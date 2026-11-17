@@ -58,6 +58,8 @@ type Options struct {
 	DockerSeparator string
 	DockerColors    DockerColors
 	SemanticColors  SemanticColors
+	DiagnosticIcons DiagnosticIcons
+	SyntaxTheme SyntaxTheme
 }
 type Renderer interface{ Render(Event) ([]byte, error) }
 type Engine struct {
@@ -242,7 +244,7 @@ func Render(ev Event, opts Options) []byte {
 	}
 	text := ev.Text
 	if ev.Diagnostic != nil && opts.Mode == Transform && !ansi.MatchString(text) {
-		return renderDiagnostic(ev.Diagnostic)
+		return renderDiagnosticWithTheme(ev.Diagnostic, opts.SemanticColors, opts.DiagnosticIcons)
 	}
 	if ansi.MatchString(text) {
 		return []byte(text)
@@ -261,7 +263,7 @@ func Render(ev Event, opts Options) []byte {
 		}
 	}
 	if language := syntaxLanguage(text); language != "" {
-		if colored, err := SyntaxHighlight(strings.TrimRight(text, "\r\n"), language); err == nil {
+		if colored, err := SyntaxHighlightWithTheme(strings.TrimRight(text, "\r\n"), language, opts.SyntaxTheme); err == nil {
 			return []byte(colored + text[len(strings.TrimRight(text, "\r\n")):])
 		}
 	}

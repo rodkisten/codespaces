@@ -36,11 +36,15 @@ func diagnosticExplanation(d *Diagnostic) string {
 // renderDiagnostic formats a structured error with a clear severity, location,
 // diagnostic code, and message. Only transform mode uses this presentation.
 func renderDiagnostic(d *Diagnostic) []byte {
-	heading, color := "✖ ERROR", "31"
+	return renderDiagnosticWithTheme(d, SemanticColors{}, DiagnosticIcons{})
+}
+
+func renderDiagnosticWithTheme(d *Diagnostic, colors SemanticColors, icons DiagnosticIcons) []byte {
+	heading, color := iconOrDefault(icons.Error, "✖") + " ERROR", semanticColor(colors.Error, "31")
 	if d.Level == Warning {
-		heading, color = "⚠ WARNING", "33"
+		heading, color = iconOrDefault(icons.Warning, "⚠") + " WARNING", semanticColor(colors.Warning, "33")
 	} else if d.Level == Info {
-		heading, color = "ℹ INFO", "36"
+		heading, color = iconOrDefault(icons.Info, "ℹ") + " INFO", semanticColor(colors.Info, "36")
 	}
 	location := d.File
 	if d.Line > 0 {
@@ -58,7 +62,7 @@ func renderDiagnostic(d *Diagnostic) []byte {
 	}
 	message := strings.TrimSpace(d.Message)
 	var out strings.Builder
-	fmt.Fprintf(&out, "\x1b[1;%sm%s\x1b[0m  \x1b[2m%s\x1b[0m%s\n", color, heading, location, code)
+	fmt.Fprintf(&out, "\x1b[1;%sm%s\x1b[0m  \x1b[%sm%s\x1b[0m%s\n", color, heading, semanticColor(colors.Location, "2"), location, code)
 	for _, line := range strings.Split(message, "\n") {
 		fmt.Fprintf(&out, "  %s\n", line)
 	}
@@ -70,14 +74,14 @@ func renderDiagnostic(d *Diagnostic) []byte {
 	if d.Tool == Vitest || d.Tool == NodeTest {
 		if m := runnerAssertion.FindStringSubmatch(message); m != nil {
 			// Keep both sides explicit instead of relying on terminal color alone.
-			fmt.Fprintf(&out, "  \x1b[32mExpected: %s\x1b[0m\n  \x1b[31mReceived: %s\x1b[0m\n", m[2], m[1])
+			fmt.Fprintf(&out, "  \x1b[%smExpected: %s\x1b[0m\n  \x1b[%smReceived: %s\x1b[0m\n", semanticColor(colors.Success, "32"), m[2], semanticColor(colors.Error, "31"), m[1])
 		}
 	}
 	if explanation := diagnosticExplanation(d); explanation != "" {
-		fmt.Fprintf(&out, "  \x1b[36m↳ %s\x1b[0m\n", explanation)
+		fmt.Fprintf(&out, "  \x1b[%sm%s %s\x1b[0m\n", semanticColor(colors.Info, "36"), iconOrDefault(icons.Explanation, "↳"), explanation)
 	}
 	if suggestion := diagnosticSuggestion(d); suggestion != "" {
-		fmt.Fprintf(&out, "  \x1b[36m💡 %s\x1b[0m\n", suggestion)
+		fmt.Fprintf(&out, "  \x1b[%sm%s %s\x1b[0m\n", semanticColor(colors.Info, "36"), iconOrDefault(icons.Suggestion, "💡"), suggestion)
 	}
 	return []byte(out.String())
 }
