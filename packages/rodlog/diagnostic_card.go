@@ -68,7 +68,7 @@ func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  max:=opts.Preset.Diagnostics.Card.MaxWidth
  if max<30 {max=100}
  width:=58
- if n,err:=strconv.Atoi(os.Getenv("COLUMNS"));err==nil && n>=30 {width=n}
+ if n,err:=strconv.Atoi(os.Getenv("COLUMNS"));err==nil && n>=30 && n<width {width=n}
  if width>max {width=max}
  if width<30 {width=30}
  color:=lipgloss.Color("9")
@@ -85,5 +85,6 @@ func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  case "normal":style=style.Border(lipgloss.NormalBorder()).BorderForeground(color)
  default:style=style.Border(lipgloss.RoundedBorder()).BorderForeground(color)
  }
- return style.Render(strings.Join(lines,"\n"))+"\n"
+ content:=lipgloss.NewStyle().Width(width-6).Render(strings.Join(lines,"\n"))
+ return style.Render(content)+"\n"
 }

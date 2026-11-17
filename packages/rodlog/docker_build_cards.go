@@ -6,7 +6,6 @@ import (
  "strings"
 
  "github.com/charmbracelet/lipgloss"
- "github.com/charmbracelet/lipgloss/tree"
 )
 
 type dockerBuildSteps struct {
@@ -19,7 +18,7 @@ type dockerBuildSteps struct {
 }
 
 func newDockerBuildSteps() *dockerBuildSteps {
- return &dockerBuildSteps{numbers: make(map[string]int), children: make(map[string]int), totals: make(map[string]string), separator: strings.Repeat("─", 36), colors: DefaultDockerColors()}
+ return &dockerBuildSteps{numbers: make(map[string]int), children: make(map[string]int), totals: make(map[string]string), separator: strings.Repeat("─", 24), colors: DefaultDockerColors()}
 }
 
 var buildKitHeader = regexp.MustCompile(`^#(\d+)\s+\[([^]]+)\]\s+(.+?)(?:\r?\n)?$`)
@@ -59,7 +58,7 @@ func (s *dockerBuildSteps) format(text string) (string, bool) {
   badge:=fmt.Sprintf("\x1b[%sm\x1b[%sm STEP %d \x1b[0m",s.colors.BadgeBackground,s.colors.BadgeText,s.next)
   colored:=command
   if highlighted,err:=SyntaxHighlight(command,"dockerfile");err==nil {colored=strings.TrimRight(highlighted,"\r\n")}
-  return fmt.Sprintf("%s  %s\n\x1b[%sm%s\x1b[0m\n",badge,colored,s.colors.Separator,s.separator),true
+  return fmt.Sprintf("%s  %s\n",badge,colored),true
  }
  if m:=buildKitChild.FindStringSubmatch(text);m!=nil {
   if number,ok:=s.numbers[m[1]];ok {
@@ -69,12 +68,7 @@ func (s *dockerBuildSteps) format(text string) (string, bool) {
    label:=fmt.Sprintf("STEP %d.%d/%s",number,s.children[m[1]],total)
    body:=strings.TrimSpace(m[3])
    if m[2]!="" {body=m[2]+"s  "+body}
-   // Lip Gloss owns the nested tree layout, padding and enumerator.
-   enumeratorStyle:=lipgloss.NewStyle().Foreground(lipgloss.Color("63")).MarginRight(1)
-   itemStyle:=lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
-   if strings.Contains(strings.ToLower(body),"err!") || strings.Contains(strings.ToLower(body),"error") {itemStyle=lipgloss.NewStyle().Foreground(lipgloss.Color("9"))}
-   nested:=tree.New().Child(label+"  "+body).Enumerator(tree.RoundedEnumerator).EnumeratorStyle(enumeratorStyle).ItemStyle(itemStyle)
-   return "  "+nested.String()+"\n",true
+   return "  └─ "+lipgloss.NewStyle().Foreground(lipgloss.Color("63")).Render(label)+"\n     "+highlightLine(body)+"\n",true
   }
  }
  return "",false
