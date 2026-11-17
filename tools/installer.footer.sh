@@ -34,6 +34,10 @@ install_devcontainer() {
   fi
   backup_existing "$target_path"
   cp -a -- "$STAGING/.devcontainer" "$target_path"
+  # Keep the generated installer compatible with the current theme on main.
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --max-time 20 "https://raw.githubusercontent.com/rodkisten/codespaces/main/.devcontainer/zsh/rod-mobile.zsh-theme" -o "$target_path/zsh/rod-mobile.zsh-theme" || warn 'Tema remoto indisponível; usando versão embutida.'
+  fi
   log "Devcontainer instalado em $target_path"
   log 'Próximo passo: reconstruir o Codespace (Codespaces: Rebuild Container).'
 }
@@ -83,6 +87,9 @@ install_shell() {
   cp -- "$STAGING/.devcontainer/zsh/zshrc" "$zshrc"
   cp -- "$STAGING/.devcontainer/nano/nanorc" "$nanorc"
   cp -- "$STAGING/.devcontainer/zsh/rod-mobile.zsh-theme" "$theme_path"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL --max-time 20 "https://raw.githubusercontent.com/rodkisten/codespaces/main/.devcontainer/zsh/rod-mobile.zsh-theme" -o "$theme_path" || warn 'Tema remoto indisponível; usando versão embutida.'
+  fi
   cp -- "$STAGING/.devcontainer/scripts/doctor.sh" "$doctor"
   chmod 0755 "$doctor"
   zsh -n "$zshrc"
