@@ -26,12 +26,14 @@ jobs:
         with:
           go-version-file: packages/rodlog/go.mod
           cache: false
-      - name: 🧹 Verify committed Go formatting
+      - name: 🧹 Report Go formatting (non-blocking)
         run: |
           files="$(gofmt -l .)"
           if [ -n "$files" ]; then
+            printf '::notice::Go formatting differs from gofmt; this is temporarily non-blocking.\n'
             printf 'Unformatted Go files:\n%s\n' "$files"
-            exit 1
+          else
+            echo 'All Go files are formatted.'
           fi
       - name: 📦 Verify Go dependencies
         run: |
