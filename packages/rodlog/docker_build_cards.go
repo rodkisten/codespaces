@@ -12,7 +12,9 @@ type dockerBuildSteps struct {
 	next    int
 }
 
-func newDockerBuildSteps() *dockerBuildSteps { return &dockerBuildSteps{numbers: make(map[string]int)} }
+func newDockerBuildSteps() *dockerBuildSteps {
+	return &dockerBuildSteps{numbers: make(map[string]int)}
+}
 
 var buildKitHeader = regexp.MustCompile(`^#(\d+)\s+\[([^]]+)\]\s+(.+?)(?:\r?\n)?$`)
 var buildKitLegacyHeader = regexp.MustCompile(`^Step\s+(\d+)/(\d+)\s*:\s*(.+?)(?:\r?\n)?$`)
