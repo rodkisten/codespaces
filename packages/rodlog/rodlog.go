@@ -126,6 +126,7 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 	seen := map[string]bool{}
 	grouped := map[string]map[Level]int{}
 	lastGroup := ""
+	buildSteps := newDockerBuildSteps()
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -144,6 +145,14 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 				current = detected
 			}
 			event := Event{Sequence: seq, Tool: current, Level: Classify(text), Text: text}
+			if current == Docker && e.Renderer == nil && e.Options.Color && e.Options.Mode != Raw {
+				if formatted, ok := buildSteps.format(text); ok {
+					if _, writeErr := io.WriteString(dst, formatted); writeErr != nil {
+						return fmt.Errorf("write Docker step: %w", writeErr)
+					}
+					continue
+				}
+			}
 			event.Diagnostic = ParseDiagnostic(current, text)
 			if event.Diagnostic != nil {
 				event.Level = event.Diagnostic.Level
