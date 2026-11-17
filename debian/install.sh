@@ -48,7 +48,7 @@ else
 fi
 packages=(sudo ca-certificates curl wget git gnupg lsb-release unzip zip tar xz-utils
  build-essential pkg-config make cmake ninja-build gcc g++ clang llvm
- openssh-client openssh-server rsync jq yq ripgrep fzf fd-find bat
+ openssh-client openssh-server rsync jq yq gh ripgrep fzf fd-find bat
  zsh micro vim nano tmux htop btop tree ncdu less file lsof
  dnsutils iproute2 iputils-ping net-tools tcpdump
  python3 python3-pip python3-venv pipx sqlite3
