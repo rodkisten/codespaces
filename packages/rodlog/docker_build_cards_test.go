@@ -143,3 +143,39 @@ func TestDockerCustomColors(t *testing.T) {
 		t.Fatalf("custom status color missing: %q", status)
 	}
 }
+
+func TestColorSGR(t *testing.T) {
+	cases := []struct {
+		value string
+		background bool
+		want string
+	}{
+		{"#A78BFA", false, "38;2;167;139;250"},
+		{"#0c2238", true, "48;2;12;34;56"},
+		{"32", false, "32"},
+	}
+	for _, tc := range cases {
+		got, err := ColorSGR(tc.value, tc.background)
+		if err != nil || got != tc.want {
+			t.Errorf("ColorSGR(%q) = %q, %v; want %q", tc.value, got, err, tc.want)
+		}
+	}
+	for _, invalid := range []string{"#fff", "#xyzxyz", "red", "31m\\x1b[2J", ""} {
+		if _, err := ColorSGR(invalid, false); err == nil {
+			t.Errorf("expected invalid color %q to fail", invalid)
+		}
+	}
+}
+
+func TestParseDockerColors(t *testing.T) {
+	got, err := ParseDockerColors(DockerColors{BadgeBackground: "#0C2238", Done: "#4ADE80"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.BadgeBackground != "48;2;12;34;56" || got.Done != "38;2;74;222;128" || got.Cached != "2" {
+		t.Fatalf("incorrect palette merge: %+v", got)
+	}
+	if _, err := ParseDockerColors(DockerColors{Error: "not-a-color"}); err == nil {
+		t.Fatal("invalid theme color was accepted")
+	}
+}
