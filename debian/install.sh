@@ -85,6 +85,27 @@ if (( INSTALL_LANGUAGES )); then
   fi
  fi
 fi
+# Install or update Rod Prompt without overwriting the user's existing Zsh config.
+if (( DRY_RUN )); then
+ log "Would install Rod Prompt for $TARGET_USER"
+else
+ theme_dir="$HOME_DIR/.config/zsh"
+ run mkdir -p "$theme_dir"
+ theme_tmp="$(mktemp)"
+ if curl -fsSL --max-time 20 "https://raw.githubusercontent.com/rodkisten/codespaces/main/.devcontainer/zsh/rod-mobile.zsh-theme" -o "$theme_tmp"; then
+   install -m 0644 "$theme_tmp" "$theme_dir/rod-prompt.zsh"
+   chown "$TARGET_USER:$TARGET_USER" "$theme_dir/rod-prompt.zsh"
+   touch "$HOME_DIR/.zshrc"
+   if ! grep -Fq 'source "$HOME/.config/zsh/rod-prompt.zsh"' "$HOME_DIR/.zshrc"; then
+     printf '\n# Rod Prompt Neon\nsource "$HOME/.config/zsh/rod-prompt.zsh"\n' >> "$HOME_DIR/.zshrc"
+   fi
+   chown "$TARGET_USER:$TARGET_USER" "$HOME_DIR/.zshrc"
+   log 'Rod Prompt Neon configured'
+ else
+   log 'WARN: Rod Prompt download failed; keeping existing shell config'
+ fi
+ rm -f "$theme_tmp"
+fi
 if (( INSTALL_TAILSCALE )); then
  log 'Installing Tailscale (login is manual)'
  if (( DRY_RUN )); then echo '[dry-run] install tailscale'; else
