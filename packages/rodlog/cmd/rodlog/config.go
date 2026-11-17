@@ -15,6 +15,7 @@ type fileConfig struct {
 	Tool   string `toml:"tool"`
 	Color  string `toml:"color"`
 	Output string `toml:"output"`
+	Semantic rodlog.SemanticColors `toml:"semantic"`
 	Docker struct {
 		Separator string `toml:"separator"`
 		Colors rodlog.DockerColors `toml:"colors"`

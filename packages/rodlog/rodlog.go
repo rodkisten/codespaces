@@ -57,6 +57,7 @@ type Options struct {
 	// DockerSeparator replaces the default 36-character BuildKit divider.
 	DockerSeparator string
 	DockerColors    DockerColors
+	SemanticColors  SemanticColors
 }
 type Renderer interface{ Render(Event) ([]byte, error) }
 type Engine struct {
@@ -265,18 +266,18 @@ func Render(ev Event, opts Options) []byte {
 		}
 	}
 	// Tool-aware spans take precedence over whole-line severity styling.
-	highlighted := highlightLine(text)
+	highlighted := highlightLineWithColors(text, opts.SemanticColors)
 	if highlighted != text {
 		return []byte(highlighted)
 	}
 	color := ""
 	switch ev.Level {
 	case Error:
-		color = "31"
+		color = semanticColor(opts.SemanticColors.Error, "31")
 	case Warning:
-		color = "33"
+		color = semanticColor(opts.SemanticColors.Warning, "33")
 	case Success:
-		color = "32"
+		color = semanticColor(opts.SemanticColors.Success, "32")
 	}
 	if color == "" {
 		return []byte(text)

@@ -284,3 +284,20 @@ cached = "#94A3B8"
 error = "#FB7185"
 separator = "#A78BFA"
 ```
+
+### Semantic theme colors
+
+Semantic colors can be set in TOML, environment (`RODLOG_SEMANTIC_ERROR`, etc.) or CLI (`--semantic-error`, etc.). CLI > environment > TOML > built-in defaults. All seven colors accept `#RRGGBB` or ANSI SGR. Existing ANSI-colored child output is preserved.
+
+```toml
+[semantic]
+error = "#FB7185"
+warning = "#FBBF24"
+success = "#4ADE80"
+info = "#38BDF8"
+muted = "#94A3B8"
+code = "#C084FC"
+location = "#67E8F9"
+```
+
+Semantic colors currently affect generic severity and token highlighting. Structured diagnostic cards and Chroma syntax palettes are separate future integration points.

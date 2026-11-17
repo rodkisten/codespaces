@@ -34,13 +34,17 @@ var diagnosticRules = []highlightRule{
 // escape sequences. Matching before rendering prevents our own ANSI codes from
 // being interpreted as user content. A bounded match count limits log overhead.
 func highlightLine(s string) string {
+	return highlightLineWithColors(s, SemanticColors{})
+}
+
+func highlightLineWithColors(s string, palette SemanticColors) string {
 	if s == "" {
 		return s
 	}
 	spans := make([]highlightSpan, 0, 8)
 	for _, rule := range diagnosticRules {
 		for _, pair := range rule.expression.FindAllStringIndex(s, 64) {
-			spans = append(spans, highlightSpan{pair[0], pair[1], rule.color, rule.priority})
+			spans = append(spans, highlightSpan{pair[0], pair[1], semanticRuleColor(rule.color, palette), rule.priority})
 		}
 	}
 	if len(spans) == 0 {

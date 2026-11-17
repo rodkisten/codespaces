@@ -53,6 +53,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	dockerCached := flags.String("docker-cached", env("RODLOG_DOCKER_CACHED", config.Docker.Colors.Cached), "Docker CACHED status color")
 	dockerError := flags.String("docker-error", env("RODLOG_DOCKER_ERROR", config.Docker.Colors.Error), "Docker ERROR status color")
 	dockerDivider := flags.String("docker-divider-color", env("RODLOG_DOCKER_DIVIDER_COLOR", config.Docker.Colors.Separator), "Docker divider color")
+	semanticError := flags.String("semantic-error", env("RODLOG_SEMANTIC_ERROR", config.Semantic.Error), "semantic error color")
+	semanticWarning := flags.String("semantic-warning", env("RODLOG_SEMANTIC_WARNING", config.Semantic.Warning), "semantic warning color")
+	semanticSuccess := flags.String("semantic-success", env("RODLOG_SEMANTIC_SUCCESS", config.Semantic.Success), "semantic success color")
+	semanticInfo := flags.String("semantic-info", env("RODLOG_SEMANTIC_INFO", config.Semantic.Info), "semantic info color")
+	semanticMuted := flags.String("semantic-muted", env("RODLOG_SEMANTIC_MUTED", config.Semantic.Muted), "semantic muted color")
+	semanticCode := flags.String("semantic-code", env("RODLOG_SEMANTIC_CODE", config.Semantic.Code), "semantic diagnostic code color")
+	semanticLocation := flags.String("semantic-location", env("RODLOG_SEMANTIC_LOCATION", config.Semantic.Location), "semantic file location color")
 	jsonOutput := flags.Bool("json", false, "request JSON for allowlisted commands and show a summary table in transform mode")
 	color := flags.String("color", env("RODLOG_COLOR", fallback(config.Color, "auto")), "auto|always|never")
 	output := flags.String("output", env("RODLOG_OUTPUT", fallback(config.Output, "terminal")), "terminal|jsonl|github")
@@ -90,7 +97,20 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, colorErr)
 		return 2
 	}
-	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor, DockerSeparator: *dockerSeparator, DockerColors: dockerColors})
+	semanticColors, semanticErr := rodlog.ParseSemanticColors(rodlog.SemanticColors{
+		Error: *semanticError,
+		Warning: *semanticWarning,
+		Success: *semanticSuccess,
+		Info: *semanticInfo,
+		Muted: *semanticMuted,
+		Code: *semanticCode,
+		Location: *semanticLocation,
+	})
+	if semanticErr != nil {
+		fmt.Fprintln(stderr, semanticErr)
+		return 2
+	}
+	engine := rodlog.New(rodlog.Options{Mode: rodlog.Mode(*mode), Tool: rodlog.Tool(*tool), Color: enableColor, DockerSeparator: *dockerSeparator, DockerColors: dockerColors, SemanticColors: semanticColors})
 	switch *output {
 	case "jsonl":
 		engine.Renderer = rodlog.JSONLRenderer{}
