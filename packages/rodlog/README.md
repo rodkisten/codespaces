@@ -32,6 +32,8 @@ npm run build 2>&1 | ./rodlog --color=always
 
 BuildKit cards use a 36-character divider by default. Library callers can override it with `Options.DockerSeparator`; CLI users can set `--docker-separator="===="` or `RODLOG_DOCKER_SEPARATOR="===="`; TOML configuration is not available yet.
 
+Docker cards also accept `Options.DockerColors` for badge background/text, DONE, CACHED, ERROR and separator colors. Values are ANSI SGR parameters (for example `38;2;167;139;250`); unspecified values retain defaults. TOML themes and a user-facing color editor remain future work.
+
 ## 🧪 Tests
 
 ```bash

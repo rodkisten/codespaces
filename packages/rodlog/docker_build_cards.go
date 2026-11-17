@@ -11,10 +11,11 @@ type dockerBuildSteps struct {
 	numbers   map[string]int
 	next      int
 	separator string
+	colors    DockerColors
 }
 
 func newDockerBuildSteps() *dockerBuildSteps {
-	return &dockerBuildSteps{numbers: make(map[string]int), separator: strings.Repeat("─", 36)}
+	return &dockerBuildSteps{numbers: make(map[string]int), separator: strings.Repeat("─", 36), colors: DefaultDockerColors()}
 }
 
 var buildKitHeader = regexp.MustCompile(`^#(\d+)\s+\[([^]]+)\]\s+(.+?)(?:\r?\n)?$`)
@@ -26,12 +27,12 @@ var buildKitInstruction = regexp.MustCompile(`(?i)^(?:RUN|COPY|ADD|FROM|WORKDIR|
 func (s *dockerBuildSteps) format(text string) (string, bool) {
 	if m := buildKitStatus.FindStringSubmatch(text); m != nil {
 		if number, exists := s.numbers[m[1]]; exists {
-			color := "32"
+			color := s.colors.Done
 			switch m[2] {
 			case "CACHED":
-				color = "2"
+				color = s.colors.Cached
 			case "ERROR":
-				color = "31"
+				color = s.colors.Error
 			}
 			return fmt.Sprintf("\x1b[2mSTEP %d\x1b[0m  \x1b[%sm%s\x1b[0m%s\n", number, color, m[2], m[3]), true
 		}
@@ -51,11 +52,11 @@ func (s *dockerBuildSteps) format(text string) (string, bool) {
 	}
 	s.next++
 	s.numbers[key] = s.next
-	badge := fmt.Sprintf("\x1b[48;5;238m\x1b[97;1m STEP %d \x1b[0m", s.next)
+	badge := fmt.Sprintf("\x1b[%sm\x1b[%sm STEP %d \x1b[0m", s.colors.BadgeBackground, s.colors.BadgeText, s.next)
 	colored := command
 	if highlighted, err := SyntaxHighlight(command, "dockerfile"); err == nil {
 		colored = strings.TrimRight(highlighted, "\r\n")
 	}
 	// The divider is configurable through engine options.
-	return fmt.Sprintf("%s  %s\n\x1b[2m%s\x1b[0m\n", badge, colored, s.separator), true
+	return fmt.Sprintf("%s  %s\n\x1b[%sm%s\x1b[0m\n", badge, colored, s.colors.Separator, s.separator), true
 }
