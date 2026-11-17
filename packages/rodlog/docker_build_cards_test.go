@@ -82,3 +82,23 @@ func TestDockerCustomSeparator(t *testing.T) {
 		t.Fatalf("custom divider not applied: %q", output.String())
 	}
 }
+
+func TestDockerBuildKitAutoDetection(t *testing.T) {
+	for _, line := range []string{
+		"#7 [build 1/2] RUN npm ci\n",
+		"#7 DONE 2.1s\n",
+		"Step 1/3 : FROM node:22\n",
+	} {
+		if got := Detect(line); got != Docker {
+			t.Errorf("Detect(%q) = %q, want docker", line, got)
+		}
+	}
+	var output bytes.Buffer
+	input := "#7 [build 1/2] RUN npm ci\n#7 DONE 2.1s\n"
+	if err := New(Options{Mode: Enhance, Tool: Auto, Color: true}).Process(context.Background(), strings.NewReader(input), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "STEP 1") || !strings.Contains(output.String(), "DONE") {
+		t.Fatalf("automatic BuildKit cards missing: %q", output.String())
+	}
+}

@@ -75,6 +75,10 @@ var patterns = map[Tool][]string{
 }
 
 func Detect(s string) Tool {
+	// BuildKit progress IDs are emitted without the word "docker".
+	if buildKitHeader.MatchString(s) || buildKitStatus.MatchString(s) || buildKitLegacyHeader.MatchString(s) {
+		return Docker
+	}
 	lower := strings.ToLower(s)
 	for _, tool := range []Tool{TypeScript, Vitest, NodeTest, NPM, GCloud, Wrangler, Docker} {
 		for _, token := range patterns[tool] {
