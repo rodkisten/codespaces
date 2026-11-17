@@ -4,7 +4,10 @@ import "testing"
 
 // TestRunnerDetection ensures node itself is not misclassified as a test runner.
 func TestRunnerDetection(t *testing.T) {
-	cases := []struct { args []string; want Tool }{
+	cases := []struct {
+		args []string
+		want Tool
+	}{
 		{[]string{"vitest", "run"}, Vitest},
 		{[]string{"npx", "vitest", "run"}, Vitest},
 		{[]string{"node", "--test", "example.test.js"}, NodeTest},
@@ -18,7 +21,10 @@ func TestRunnerDetection(t *testing.T) {
 }
 
 func TestRunnerDiagnostics(t *testing.T) {
-	cases := []struct { tool Tool; input, want string }{
+	cases := []struct {
+		tool Tool
+		input, want string
+	}{
 		{Vitest, " ❯ src/button.test.ts > renders label", "src/button.test.ts > renders label"},
 		{NodeTest, "✖ adds numbers (3.1ms)", "adds numbers (3.1ms)"},
 		{NodeTest, "not ok 2 - fails assertion", "fails assertion"},
