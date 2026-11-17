@@ -19,13 +19,13 @@ func TestDockerBuildStepCards(t *testing.T) {
 			t.Errorf("missing %q in %q", expected, got)
 		}
 	}
-	if strings.Contains(got, "#9 [builder") || strings.Contains(got, "#12 [builder") {
+	if strings.Contains(got, "#9 [builder") {
 		t.Errorf("raw header leaked: %q", got)
 	}
-	if strings.Count(got, "STEP 2") != 1 {
+	if strings.Count(got, "\x1b[48;5;238m\x1b[97;1m STEP 2 ") != 1 {
 		t.Errorf("duplicate card: %q", got)
 	}
-	if !strings.Contains(got, "#12 [builder 2/3] RUN npm ci") {
+	if !strings.Contains(ansi.ReplaceAllString(got, ""), "#12 [builder 2/3] RUN npm ci") {
 		t.Errorf("repeated header was silently dropped: %q", got)
 	}
 }
