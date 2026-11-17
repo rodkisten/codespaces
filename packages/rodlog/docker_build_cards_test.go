@@ -179,3 +179,32 @@ func TestParseDockerColors(t *testing.T) {
 		t.Fatal("invalid theme color was accepted")
 	}
 }
+
+func TestEngineDockerHexColors(t *testing.T) {
+	input := "#8 [build 1/2] RUN echo hello\n#8 DONE 1.2s\n"
+	var output bytes.Buffer
+	engine := New(Options{
+		Mode: Enhance,
+		Tool: Docker,
+		Color: true,
+		DockerColors: DockerColors{
+			BadgeBackground: "#0C2238",
+			BadgeText:       "#E8EAF0",
+			Done:            "#4ADE80",
+			Separator:       "#A78BFA",
+		},
+	})
+	if err := engine.Process(context.Background(), strings.NewReader(input), &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		"\x1b[48;2;12;34;56m",
+		"\x1b[38;2;232;234;240m",
+		"\x1b[38;2;74;222;128m",
+		"\x1b[38;2;167;139;250m",
+	} {
+		if !strings.Contains(output.String(), expected) {
+			t.Errorf("missing configured color %q in %q", expected, output.String())
+		}
+	}
+}

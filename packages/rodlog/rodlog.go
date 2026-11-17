@@ -137,7 +137,9 @@ func (e *Engine) Process(ctx context.Context, src io.Reader, dst io.Writer) erro
 	grouped := map[string]map[Level]int{}
 	lastGroup := ""
 	buildSteps := newDockerBuildSteps()
-	buildSteps.colors = mergeDockerColors(buildSteps.colors, e.Options.DockerColors)
+	if colors, colorErr := ParseDockerColors(e.Options.DockerColors); colorErr == nil {
+		buildSteps.colors = colors
+	}
 	if e.Options.DockerSeparator != "" {
 		buildSteps.separator = e.Options.DockerSeparator
 	}

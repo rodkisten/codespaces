@@ -32,7 +32,7 @@ npm run build 2>&1 | ./rodlog --color=always
 
 BuildKit cards use a 36-character divider by default. Library callers can override it with `Options.DockerSeparator`; CLI users can set `--docker-separator="===="` or `RODLOG_DOCKER_SEPARATOR="===="`; TOML configuration is not available yet.
 
-Docker cards also accept `Options.DockerColors` for badge background/text, DONE, CACHED, ERROR and separator colors. `ParseDockerColors` accepts `#RRGGBB` and legacy ANSI SGR parameters (for example `38;2;167;139;250`), rejects malformed values, and retains defaults for unspecified fields. Engine options still use SGR values until theme configuration is wired in. TOML themes and a user-facing color editor remain future work.
+Docker cards also accept `Options.DockerColors` for badge background/text, DONE, CACHED, ERROR and separator colors. `ParseDockerColors` accepts `#RRGGBB` and legacy ANSI SGR parameters (for example `38;2;167;139;250`), rejects malformed values, and retains defaults for unspecified fields. Engine options now accept hex colors directly and normalize them when processing Docker cards. Invalid palette values fall back to defaults; strict validation is available through `ParseDockerColors`. TOML theme loading is not implemented yet. TOML themes and a user-facing color editor remain future work.
 
 ## 🧪 Tests
 
