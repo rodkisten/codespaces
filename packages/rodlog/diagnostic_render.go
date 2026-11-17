@@ -10,7 +10,7 @@ import (
 // them only when the diagnostic code is known; guessing from arbitrary errors
 // could produce misleading advice. Chroma and Lip Gloss already handle generic
 // syntax and terminal styling, so this layer adds only domain-specific meaning.
-var tsTypePair = regexp.MustCompile(`(?i)type ['"`]([^'"`]+)['"`] is not assignable to (?:type|parameter of type) ['"`]([^'"`]+)['"`]`)
+var tsTypePair = regexp.MustCompile(`(?i)(?:argument of )?type '([^']+)' is not assignable to (?:type|parameter of type) '([^']+)'`)
 
 // diagnosticExplanation returns a short interpretation, not an automatic fix.
 // TypeScript's actual message remains visible and authoritative.
