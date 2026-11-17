@@ -78,8 +78,8 @@ func ColorSGR(value string, background bool) (string, error) {
 func ParseDockerColors(input DockerColors) (DockerColors, error) {
 	base := mergeDockerColors(DefaultDockerColors(), input)
 	fields := []struct {
-		name string
-		value *string
+		name       string
+		value      *string
 		background bool
 	}{
 		{"badge_background", &base.BadgeBackground, true},

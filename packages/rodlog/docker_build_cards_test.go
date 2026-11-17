@@ -146,9 +146,9 @@ func TestDockerCustomColors(t *testing.T) {
 
 func TestColorSGR(t *testing.T) {
 	cases := []struct {
-		value string
+		value      string
 		background bool
-		want string
+		want       string
 	}{
 		{"#A78BFA", false, "38;2;167;139;250"},
 		{"#0c2238", true, "48;2;12;34;56"},
