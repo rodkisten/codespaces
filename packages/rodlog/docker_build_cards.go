@@ -18,27 +18,7 @@ func newDockerBuildSteps() *dockerBuildSteps {
 
 var buildKitHeader = regexp.MustCompile(`^#(\d+)\s+\[([^]]+)\]\s+(.+?)(?:\r?\n)?$`)
 var buildKitLegacyHeader = regexp.MustCompile(`^Step\s+(\d+)/(\d+)\s*:\s*(.+?)(?:\r?\n)?$`)
-var buildKitStatus = regexp.MustCompile(`^#(\d+)\s+(DONE|CACHED|ERROR|FINISHED)(.*?)(?:\r?\n)?package rodlog
-
-import (
-	"fmt"
-	"regexp"
-	"strings"
-)
-
-// BuildKit IDs are concurrent. Display steps are numbered when a header first appears.
-type dockerBuildSteps struct {
-	numbers map[string]int
-	next    int
-}
-
-func newDockerBuildSteps() *dockerBuildSteps {
-	return &dockerBuildSteps{numbers: make(map[string]int)}
-}
-
-var buildKitHeader = regexp.MustCompile(`^#(\d+)\s+\[([^]]+)\]\s+(.+?)(?:\r?\n)?$`)
-var buildKitLegacyHeader = regexp.MustCompile(`^Step\s+(\d+)/(\d+)\s*:\s*(.+?)(?:\r?\n)?$`)
-)
+var buildKitStatus = regexp.MustCompile(`^#(\d+)\s+(DONE|CACHED|ERROR|FINISHED)([^\r\n]*)(?:\r?\n)?$`)
 var buildKitInstruction = regexp.MustCompile(`(?i)^(?:RUN|COPY|ADD|FROM|WORKDIR|ENV|ARG|CMD|ENTRYPOINT|USER|EXPOSE|LABEL|HEALTHCHECK|SHELL|VOLUME|ONBUILD|STOPSIGNAL)\b`)
 
 // Only command headers are transformed; progress, diagnostics and arbitrary logs survive.

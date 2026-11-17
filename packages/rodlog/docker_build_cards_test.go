@@ -61,3 +61,12 @@ func TestDockerStepStatusMapping(t *testing.T) {
 		t.Fatal("unknown step status must preserve original output")
 	}
 }
+
+func TestDockerBuildStatusError(t *testing.T) {
+	steps := newDockerBuildSteps()
+	steps.format("#5 [build 2/3] RUN false\n")
+	got, ok := steps.format("#5 ERROR 0.5s\n")
+	if !ok || !strings.Contains(got, "STEP 1") || !strings.Contains(got, "ERROR") || !strings.Contains(got, "0.5s") {
+		t.Fatalf("error status lost: %q", got)
+	}
+}
