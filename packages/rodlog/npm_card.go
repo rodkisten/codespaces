@@ -42,5 +42,5 @@ func RenderNPMCard(lines []string, opts Options) string {
  for _,detail:=range uniqueCardDetails(d.Message,d.Details) {body=append(body,cardLines(detail,width)...)}
  if d.Suggestion!="" {for _,line:=range cardLines("$ "+d.Suggestion,width) {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(line))}}
  if d.LogPath!="" {body=append(body,"Debug log:");for _,line:=range cardLines(d.LogPath,width) {body=append(body,lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Render(line))}}
- return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("8")).Padding(0,1).Width(width-4).MaxWidth(width).Render(strings.Join(body,"\n"))+"\n"
+ return colorizeRenderedCard(lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("8")).Padding(0,1).Width(width-4).MaxWidth(width).Render(strings.Join(body,"\n")),NPM,opts)+"\n"
 }

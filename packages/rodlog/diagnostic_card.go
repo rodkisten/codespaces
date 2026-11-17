@@ -98,5 +98,5 @@ func RenderDiagnosticCard(d DiagnosticCard,opts Options) string {
  default:style=style.Border(lipgloss.RoundedBorder()).BorderForeground(color)
  }
  content:=strings.Join(lines,"\n")
- return style.Render(content)+"\n"
+ return colorizeRenderedCard(style.Render(content),d.Tool,opts)+"\n"
 }
