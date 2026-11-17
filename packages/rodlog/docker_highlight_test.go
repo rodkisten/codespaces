@@ -38,7 +38,7 @@ func TestDockerBuildSteps(t *testing.T) {
 		{"#12 CACHED\n", "\x1b[2mCACHED\x1b[0m"},
 		{"#13 DONE 0.4s\n", "\x1b[32mDONE\x1b[0m"},
 		{"#14 ERROR: process exited\n", "\x1b[31mERROR\x1b[0m"},
-		{"#15 [stage-0 2/3] exporting layers\n", "\x1b[36m#15 [stage-0 2/3] exporting\x1b[0m"},
+		{"#15 [stage-0 2/3] exporting layers\n", "\x1b[36mexporting\x1b[0m"},
 	}
 	for _, tc := range cases {
 		got := string(Render(Event{Tool: Docker, Text: tc.line}, Options{Mode: Enhance, Color: true}))

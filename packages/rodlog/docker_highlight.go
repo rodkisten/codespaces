@@ -13,8 +13,9 @@ var dockerfileInstruction = regexp.MustCompile(`(?i)^(?:FROM|RUN|COPY|ADD|WORKDI
 // BuildKit uses numbered, concurrent steps rather than a linear progress bar.
 // Match its status tokens before general container events, preserving the step
 // identifier, command and elapsed time for copy/paste and troubleshooting.
-var dockerBuildStep = regexp.MustCompile(`^#\\d+\\s+(?:\\[[^]]+\\]\\s*)?(?:CACHED|DONE|ERROR|FINISHED|exporting|transferring|loading|resolving|extracting|importing|writing|naming)\\b`)
-var dockerBuildStatus = regexp.MustCompile(`\\b(?:CACHED|DONE|ERROR|FINISHED)\\b`)
+var dockerBuildStep = regexp.MustCompile(`^#\d+\s+(?:\[[^]]+\]\s*)?(?:CACHED|DONE|ERROR|FINISHED|exporting|transferring|loading|resolving|extracting|importing|writing|naming)\b`)
+var dockerBuildStatus = regexp.MustCompile(`\b(?:CACHED|DONE|ERROR|FINISHED)\b`)
+var dockerBuildActivity = regexp.MustCompile(`\b(?:exporting|transferring|loading|resolving|extracting|importing|writing|naming)\b`)
 
 var dockerEvents = []struct {
 	pattern *regexp.Regexp
@@ -43,7 +44,7 @@ func highlightDocker(text string) (string, bool) {
 			return colorDockerSpan(text, loc, color), true
 		}
 		// Active transfer/export steps get a restrained cyan status marker.
-		if loc := dockerBuildStep.FindStringIndex(text); loc != nil {
+		if loc := dockerBuildActivity.FindStringIndex(text); loc != nil {
 			return colorDockerSpan(text, loc, "36"), true
 		}
 	}
