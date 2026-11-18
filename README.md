@@ -256,3 +256,17 @@ exec zsh
 ```
 
 Variáveis opcionais antes do `source`: `ROD_PROMPT_DOTS=0` (sem separador), `ROD_PROMPT_SHOW_BRANCH=0`, `ROD_PROMPT_SHOW_REPO=0`. O comprimento da linha acompanha `COLUMNS`, inclusive após redimensionamento. Nomes de diretórios com caracteres de largura especial podem apresentar pequenas diferenças visuais em terminais distintos.
+
+## 🩺 Rod Zsh Doctor: recuperação de VPS
+
+O diagnóstico usa `--check` sem alterar arquivos. O modo `--repair` faz backup do `~/.zshrc`, substitui apenas o prompt emergencial antigo e mantém o Rod Notify, seus tokens e o sender existentes.
+
+```bash
+curl -fsSLo /tmp/rod-zsh-doctor.sh https://raw.githubusercontent.com/rodkisten/codespaces/main/scripts/rod-zsh-doctor.sh
+bash /tmp/rod-zsh-doctor.sh --check
+bash /tmp/rod-zsh-doctor.sh --repair
+exec zsh
+```
+
+Verifique erros e status com `command rod_missing_123; echo $?` (esperado: 127). O doctor não instala Zplug, Oh My Zsh ou outros plugins. **Não execute instaladores antigos do Relay enquanto houver erros de codificação.** O token deve permanecer em arquivo privado, nunca no GitHub ou no histórico.
+
