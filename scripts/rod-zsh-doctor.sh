@@ -46,8 +46,8 @@ setopt PROMPT_PERCENT
 _rod_prompt_safe() {
   local rc=$?
   local dir="${(%):-%~}" branch='' dots=''
-  local status='%F{82}❯%f'
-  (( rc != 0 )) && status="%F{203}❯ $rc%f"
+  local status_indicator='%F{82}❯%f'
+  (( rc != 0 )) && status_indicator="%F{203}❯ $rc%f"
   if (( $+commands[git] )); then
     branch=$(command git symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=''
   fi
@@ -61,7 +61,7 @@ _rod_prompt_safe() {
   PROMPT+=$'\n'
   PROMPT+="%F{242}$dots%f"
   PROMPT+=$'\n'
-  PROMPT+="%F{177}╰─%f $status "
+  PROMPT+="%F{177}╰─%f $status_indicator "
   RPROMPT=''
   return 0
 }
@@ -76,6 +76,11 @@ cat >> "$TMP" <<'ZSH'
 ZSH
 zsh -n "$TMP"
 zsh -n "$DIR/rod-prompt.zsh"
+# Execute the actual precmd function in interactive mode to catch readonly vars.
+if ! HOME="$HOME" zsh -fic 'source "$HOME/.config/zsh/rod-prompt.zsh"; false; _rod_prompt_safe; [[ "$PROMPT" == *"203"* ]]' >/dev/null; then
+  echo "❌ Interactive prompt validation failed; original .zshrc untouched" >&2
+  exit 1
+fi
 chmod --reference="$RC" "$TMP"
 cat "$TMP" > "$RC"
 echo '✅ Repaired. Secrets and Notify sender unchanged.'
