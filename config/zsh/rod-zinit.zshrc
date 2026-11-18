@@ -77,3 +77,13 @@ bindkey '^[^[ ' _rod_sudo_prefix
 [[ -r /etc/zsh_command_not_found ]] && source /etc/zsh_command_not_found
 [[ -r "$HOME/.config/zsh/rod-notify.zsh" ]] && source "$HOME/.config/zsh/rod-notify.zsh"
 [[ -r "$HOME/.config/zsh/rod-prompt.zsh" ]] && source "$HOME/.config/zsh/rod-prompt.zsh"
+
+# Rod Notify interactive tmux debugger (no credentials in command arguments).
+function rod-notify-debug() {
+  local script="$HOME/.local/share/rod/codespaces/scripts/rod-notify-debug.py"
+  if [[ ! -f "$script" ]]; then
+    print -u2 "Missing $script. Run the Codespaces Zinit installer again."
+    return 1
+  fi
+  python3 "$script" "$@"
+}
