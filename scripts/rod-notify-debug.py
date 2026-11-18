@@ -55,7 +55,7 @@ def run():
         return 2
     payload = {
         "title": "💜 Rod Notify · Debug",
-        "message": "Teste de conectividade da VPS",
+        "body": "Teste de conectividade da VPS",
         "status": "success",
     }
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -94,7 +94,7 @@ def run():
     print(safe or "(empty response)")
     print("╰─", "✅ Success" if 200 <= status < 300 else "❌ Server rejected request")
     if status == 400 or status == 422:
-        print("ℹ️ Check the JSON contract in the real send.sh. This probe uses title/message/status.")
+        print("ℹ️ Check the JSON contract in the real send.sh. This probe uses title/body/status.")
     return 0 if 200 <= status < 300 else 1
 
 def main():
