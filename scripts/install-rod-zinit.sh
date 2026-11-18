@@ -15,7 +15,8 @@ if [[ ! -f "$ZINIT_HOME/zinit.zsh" ]]; then
   mkdir -p "$(dirname "$ZINIT_HOME")"
   git clone --depth 1 https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 fi
-mkdir -p "$HOME/.config/zsh"
+mkdir -p "$HOME/.config/zsh" "$HOME/.local/share/rod/codespaces/scripts"
+cp "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/rod-notify-debug.py" "$HOME/.local/share/rod/codespaces/scripts/rod-notify-debug.py"
 cp "$SRC" "$TARGET.tmp"
 zsh -n "$TARGET.tmp"
 mv "$TARGET.tmp" "$TARGET"
