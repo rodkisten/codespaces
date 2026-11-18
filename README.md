@@ -270,3 +270,15 @@ exec zsh
 
 Verifique erros e status com `command rod_missing_123; echo $?` (esperado: 127). O doctor não instala Zplug, Oh My Zsh ou outros plugins. **Não execute instaladores antigos do Relay enquanto houver erros de codificação.** O token deve permanecer em arquivo privado, nunca no GitHub ou no histórico.
 
+
+## 💜 Rod Zsh com Zinit (sem Oh My Zsh)
+
+O Rod Zsh usa plugins Zinit (completions, autosuggestions, history-substring-search e syntax-highlighting), configurações de histórico, fzf, aliases e helpers de CLI. O Rod Prompt e o Rod Notify permanecem independentes. O instalador faz backup de `~/.zshrc` e não modifica o token do Relay.
+
+```bash
+git clone --depth 1 https://github.com/rodkisten/codespaces.git /tmp/rod-codespaces
+bash /tmp/rod-codespaces/scripts/install-rod-zinit.sh
+exec zsh
+```
+
+Para atualizar: `git -C /tmp/rod-codespaces pull --ff-only` e execute novamente o instalador. Antes de usar, confira `zsh -n ~/.zshrc`. Plugins que dependem de ferramentas externas só funcionam quando elas estão instaladas.
