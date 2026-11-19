@@ -3,6 +3,27 @@
 # Gerado por tools/build-installer.sh. Não edite o conteúdo EMBEDDED manualmente.
 set -euo pipefail
 
+#!/usr/bin/env bash
+# @bin
+set -Eeuo pipefail
+
+ROD_PREFIX="gh-env-sync"
+if [[ -f "$HOME/.local/lib/rod-ui.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "$HOME/.local/lib/rod-ui.sh"
+else
+  # Fallback mínimo caso rodado isoladamente
+  log() { printf '[%s] %s\n' "$ROD_PREFIX" "$*" >&2; }
+  log_ok() { log "OK: $*"; }
+  log_warn() { log "WARN: $*"; }
+  fail() { log "ERROR: $*"; exit 1; }
+fi
+
+# Agora você usa livremente em qualquer CLI:
+log_info "Carregando variáveis..."
+log_ok "Sincronização concluída!"
+
+
 PROGRAM_NAME='Rod Mobile Codespaces'
 MODE='devcontainer'
 TARGET="$PWD"
@@ -39,142 +60,6 @@ Opções:
 
 As CLIs completas são instaladas ao reconstruir o devcontainer.
 USAGE
-}
-
-log() { printf '\033[36m%s\033[0m %s\n' '[rod-mobile]' "$*" >&2; }
-warn() { printf '\033[33m%s\033[0m %s\n' '[aviso]' "$*" >&2; }
-fail() {
-  tput cnorm 2>/dev/null || true
-  printf '\033[31m%s\033[0m %s\n' '[erro]' "$*" >&2
-  exit 1
-}
-
-# ==============================================================================
-# UI: SPINNER E CONTROLE DE ETAPAS
-# ==============================================================================
-spinner() {
-  local pid="$1"
-  local step_prefix="$2"
-  local message="$3"
-  local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-
-  if [[ ! -t 2 ]]; then
-    wait "$pid"
-    return $?
-  fi
-
-  tput civis 2>/dev/null || true
-  while kill -0 "$pid" 2>/dev/null; do
-    local temp="${spinstr#?}"
-    printf '\r\033[36m[rod-mobile]\033[0m %s\033[33m%c\033[0m %s...' "$step_prefix" "$spinstr" "$message" >&2
-    spinstr="$temp${spinstr%"$temp"}"
-    sleep 0.1
-  done
-  tput cnorm 2>/dev/null || true
-}
-
-run_with_spinner() {
-  local step_prefix="$1"
-  local label="$2"
-  shift 2
-
-  printf '=== %s %s ===\n' "$step_prefix" "$label" >> "$LOG_FILE"
-
-  ( "$@" ) >> "$LOG_FILE" 2>&1 &
-  local pid=$!
-
-  spinner "$pid" "$step_prefix" "$label"
-
-  local exit_code=0
-  wait "$pid" || exit_code=$?
-
-  [[ -t 2 ]] && printf '\r\033[K' >&2
-
-  if [[ $exit_code -eq 0 ]]; then
-    printf '\033[36m[rod-mobile]\033[0m %s\033[32m✔\033[0m %s\n' "$step_prefix" "$label" >&2
-    return 0
-  else
-    printf '\033[36m[rod-mobile]\033[0m %s\033[31m✖\033[0m %s \033[31m(falhou com código %d)\033[0m\n' "$step_prefix" "$label" "$exit_code" >&2
-    warn "Últimas linhas do log ($LOG_FILE):"
-    tail -n 15 "$LOG_FILE" >&2
-    exit "$exit_code"
-  fi
-}
-
-# Variante não-fatal para instalação de pacotes (registra falha sem abortar os demais)
-run_package_step() {
-  local step_prefix="$1"
-  local label="$2"
-  shift 2
-
-  printf '=== %s %s ===\n' "$step_prefix" "$label" >> "$LOG_FILE"
-
-  ( "$@" ) >> "$LOG_FILE" 2>&1 &
-  local pid=$!
-
-  spinner "$pid" "$step_prefix" "$label"
-
-  local exit_code=0
-  wait "$pid" || exit_code=$?
-
-  [[ -t 2 ]] && printf '\r\033[K' >&2
-
-  if [[ $exit_code -eq 0 ]]; then
-    printf '\033[36m[rod-mobile]\033[0m %s\033[32m✔\033[0m %s\n' "$step_prefix" "$label" >&2
-    return 0
-  else
-    printf '\033[36m[rod-mobile]\033[0m %s\033[31m✖\033[0m %s \033[31m(código %d)\033[0m\n' "$step_prefix" "$label" "$exit_code" >&2
-    return "$exit_code"
-  fi
-}
-
-# ==============================================================================
-# RESUMO COLORIDO EM CAIXA
-# ==============================================================================
-print_summary_box() {
-  local title="$1"
-  local total_inst="${#SUMMARY_INSTALLED[@]}"
-  local total_skip="${#SUMMARY_SKIPPED[@]}"
-  local total_fail="${#SUMMARY_FAILED[@]}"
-  local total_all=$((total_inst + total_skip + total_fail))
-
-  # Não exibe caixa se nenhuma ação foi registrada
-  [[ $total_all -eq 0 ]] && return 0
-
-  local C_RESET='\033[0m'
-  local C_BOLD='\033[1m'
-  local C_CYAN='\033[36m'
-  local C_GREEN='\033[32m'
-  local C_YELLOW='\033[33m'
-  local C_RED='\033[31m'
-  local C_DIM='\033[2m'
-
-  local list_inst="nenhum"
-  local list_skip="nenhum"
-  local list_fail="nenhum"
-
-  if [[ $total_inst -gt 0 ]]; then
-    list_inst="$(IFS=', '; echo "${SUMMARY_INSTALLED[*]}")"
-  fi
-  if [[ $total_skip -gt 0 ]]; then
-    list_skip="$(IFS=', '; echo "${SUMMARY_SKIPPED[*]}")"
-  fi
-  if [[ $total_fail -gt 0 ]]; then
-    list_fail="$(IFS=', '; echo "${SUMMARY_FAILED[*]}")"
-  fi
-
-  printf '\n' >&2
-  printf "${C_CYAN}${C_BOLD}╭────────────────────────────────────────────────────────────────────╮${C_RESET}\n" >&2
-  printf "${C_CYAN}${C_BOLD}│  ✨ %-62s │${C_RESET}\n" "$title" >&2
-  printf "${C_CYAN}${C_BOLD}├────────────────────────────────────────────────────────────────────┤${C_RESET}\n" >&2
-  printf "${C_CYAN}│${C_RESET}  ${C_BOLD}Total processado:${C_RESET} %-49s${C_CYAN}│${C_RESET}\n" "$total_all item(ns)" >&2
-  printf "${C_CYAN}│${C_RESET}  ${C_GREEN}${C_BOLD}✔ Instalados (%d):${C_RESET} ${C_GREEN}%-48s${C_RESET}${C_CYAN}│${C_RESET}\n" "$total_inst" "$list_inst" >&2
-  printf "${C_CYAN}│${C_RESET}  ${C_YELLOW}${C_BOLD}↷ Ignorados  (%d):${C_RESET} ${C_YELLOW}%-48s${C_RESET}${C_CYAN}│${C_RESET}\n" "$total_skip" "$list_skip" >&2
-  if [[ $total_fail -gt 0 ]]; then
-    printf "${C_CYAN}│${C_RESET}  ${C_RED}${C_BOLD}✖ Falharam   (%d):${C_RESET} ${C_RED}%-48s${C_RESET}${C_CYAN}│${C_RESET}\n" "$total_fail" "$list_fail" >&2
-  fi
-  printf "${C_CYAN}${C_BOLD}╰────────────────────────────────────────────────────────────────────╯${C_RESET}\n" >&2
-  printf "${C_DIM}  Log detalhado disponível em: %s${C_RESET}\n\n" "$LOG_FILE" >&2
 }
 
 while (($#)); do
@@ -633,7 +518,7 @@ _________run_modular_scripts() {
 # ==============================================================================
 # PROCESSAMENTO DE SCRIPTS: INSTALAR EM ~/.local/bin vs EXECUTAR SETUP
 # ==============================================================================
-process_scripts() {
+__________process_scripts() {
   local base_dir="$1"
   local bin_dest="${HOME:?HOME não configurado}/.local/bin"
   [[ -d "$base_dir" ]] || return 0
@@ -718,6 +603,112 @@ process_scripts() {
   done
 }
 
+# ==============================================================================
+# PROCESSAMENTO DE SCRIPTS: LIBS, CLIs (~/.local/bin) E SETUPS (.sh/.bash/.zsh)
+# ==============================================================================
+process_scripts() {
+  local base_dir="$1"
+  local bin_dest="${HOME:?HOME não configurado}/.local/bin"
+  local lib_dest="${HOME}/.local/lib"
+  [[ -d "$base_dir" ]] || return 0
+
+  mkdir -p -- "$bin_dest" "$lib_dest"
+
+  local user_shell
+  user_shell="$(basename "${SHELL:-sh}")"
+  log "Shell do usuário detectado: $user_shell"
+
+  # 1. Instala bibliotecas compartilhadas (ex: scripts/lib/rod-ui.sh -> ~/.local/lib/)
+  if [[ -d "$base_dir/lib" ]]; then
+    local lib_file lib_name
+    for lib_file in "$base_dir/lib/"*; do
+      [[ -f "$lib_file" ]] || continue
+      lib_name="$(basename "$lib_file")"
+      if (( DRY_RUN )); then
+        log "Simulação: instalaria biblioteca '$lib_name' em $lib_dest/$lib_name"
+      else
+        cp -f -- "$lib_file" "$lib_dest/$lib_name"
+        chmod 0644 "$lib_dest/$lib_name"
+        log "Biblioteca instalada: $lib_name → $lib_dest/$lib_name"
+      fi
+    done
+  fi
+
+  # 2. Coleta todos os arquivos restantes ordenados alfabeticamente (ex: 01-, 02-)
+  local all_files=()
+  while IFS= read -r file; do
+    all_files+=("$file")
+  done < <(find "$base_dir" -type f ! -name "install.sh" | sort)
+
+  local total="${#all_files[@]}"
+  [[ $total -eq 0 ]] && return 0
+
+  local current=0
+  local file name ext rel_path
+
+  for file in "${all_files[@]}"; do
+    current=$((current + 1))
+    name="$(basename "$file")"
+    rel_path="${file#"$base_dir"/}"
+
+    # Ignora arquivos dentro de lib/ (já processados na etapa 1)
+    [[ "$rel_path" == lib/* ]] && continue
+
+    # --------------------------------------------------------------------------
+    # REGRA 1: É uma CLI/binário para instalar em ~/.local/bin?
+    # Critério: está dentro de "bin/" OU possui "# @bin" nas 5 primeiras linhas
+    # --------------------------------------------------------------------------
+    if [[ "$rel_path" == bin/* ]] || head -n 5 "$file" 2>/dev/null | grep -qE '^#\s*@bin\b'; then
+      # Remove extensão (.sh, .bash, .zsh) para virar um comando limpo no PATH
+      local cmd_name="${name%.*}"
+      [[ "$name" != *.* ]] && cmd_name="$name"
+
+      local target_bin="$bin_dest/$cmd_name"
+
+      if (( DRY_RUN )); then
+        log "Simulação [$current/$total]: instalaria CLI '$cmd_name' em $target_bin"
+        continue
+      fi
+
+      backup_existing "$target_bin"
+      install -m 0755 "$file" "$target_bin"
+      printf '\033[36m[rod-mobile]\033[0m [%d/%d] \033[32m✔\033[0m CLI instalada: \033[1m%s\033[0m → %s\n' \
+        "$current" "$total" "$cmd_name" "$target_bin" >&2
+      continue
+    fi
+
+    # --------------------------------------------------------------------------
+    # REGRA 2: É um script de setup para rodar agora (.sh, .bash, .zsh)?
+    # --------------------------------------------------------------------------
+    ext="${name##*.}"
+    local interpreter=""
+
+    case "$ext" in
+      zsh)
+        if command -v zsh >/dev/null 2>&1; then
+          interpreter="zsh"
+        else
+          warn "[$current/$total] Pulando $name (zsh não está instalado)."
+          continue
+        fi
+        ;;
+      bash|sh)
+        interpreter="bash"
+        ;;
+      *)
+        # Ignora arquivos auxiliares não executáveis (ex: README.md, .json)
+        continue
+        ;;
+    esac
+
+    if (( DRY_RUN )); then
+      log "Simulação [$current/$total]: executaria setup '$name' via '$interpreter'"
+      continue
+    fi
+
+    run_with_spinner "[$current/$total]" "Executando setup $name ($interpreter)" "$interpreter" "$file"
+  done
+}
 
 
 install_devcontainer() {
