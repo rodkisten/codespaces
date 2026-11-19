@@ -28,8 +28,8 @@ jobs:
       - name: Package repository (zip & tar.gz)
         run: |
           mkdir -p dist
-          zip -r dist/Repo.zip . -x ".git/*" "dist/*"
-          tar --exclude=".git" --exclude="dist" -czf dist/Repo.tar.gz .
+          zip -r repo.zip . -x ".git/*" "dist/*"
+          tar --exclude=".git" --exclude="dist" -czf repo.tar.gz .
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
