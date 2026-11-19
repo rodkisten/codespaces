@@ -576,7 +576,7 @@ install_bootstrap() {
 # ==============================================================================
 # DETECÇÃO DE SHELL E EXECUÇÃO MODULAR (.sh, .bash, .zsh)
 # ==============================================================================
-run_modular_scripts() {
+_________run_modular_scripts() {
   local search_dir="$1"
   [[ -d "$search_dir" ]] || return 0
 
@@ -629,6 +629,96 @@ run_modular_scripts() {
     run_with_spinner "[$current/$total]" "Executando $name ($interpreter)" "$interpreter" "$script"
   done
 }
+
+# ==============================================================================
+# PROCESSAMENTO DE SCRIPTS: INSTALAR EM ~/.local/bin vs EXECUTAR SETUP
+# ==============================================================================
+process_scripts() {
+  local base_dir="$1"
+  local bin_dest="${HOME:?HOME não configurado}/.local/bin"
+  [[ -d "$base_dir" ]] || return 0
+
+  mkdir -p -- "$bin_dest"
+
+  local user_shell
+  user_shell="$(basename "${SHELL:-sh}")"
+  log "Shell do usuário detectado: $user_shell"
+
+  # 1.Coleta todos os arquivos relevantes ordenados
+  local all_files=()
+  while IFS= read -r file; do
+    all_files+=("$file")
+  done < <(find "$base_dir" -type f ! -name "install.sh" | sort)
+
+  local total="${#all_files[@]}"
+  [[ $total -eq 0 ]] && return 0
+
+  local current=0
+  local file name ext rel_path
+
+  for file in "${all_files[@]}"; do
+    current=$((current + 1))
+    name="$(basename "$file")"
+    rel_path="${file#"$base_dir"/}"
+
+    # --------------------------------------------------------------------------
+    # REGRA 1: É um binário/CLI para instalar em ~/.local/bin?
+    # Critério: está dentro de uma subpasta "bin/" OU tem "# @bin" nas 5 primeiras linhas
+    # --------------------------------------------------------------------------
+    if [[ "$rel_path" == bin/* ]] || head -n 5 "$file" 2>/dev/null | grep -qE '^#\s*@bin\b'; then
+      # Remove extensão .sh/.bash/.zsh do nome final do comando (ex: gh-env-sync.sh -> gh-env-sync)
+      local cmd_name="${name%.*}"
+      # Se o arquivo não tinha extensão (ex: rod-check), mantém o nome original
+      [[ "$name" != *.* ]] && cmd_name="$name"
+
+      local target_bin="$bin_dest/$cmd_name"
+
+      if (( DRY_RUN )); then
+        log "Simulação [$current/$total]: instalaria CLI '$cmd_name' em $target_bin"
+        continue
+      fi
+
+      backup_existing "$target_bin"
+      install -m 0755 "$file" "$target_bin"
+      printf '\033[36m[rod-mobile]\033[0m [%d/%d] \033[32m✔\033[0m CLI instalada: \033[1m%s\033[0m → %s\n' \
+        "$current" "$total" "$cmd_name" "$target_bin" >&2
+      continue
+    fi
+
+    # --------------------------------------------------------------------------
+    # REGRA 2: É um script de setup para rodar agora (.sh, .bash, .zsh)?
+    # --------------------------------------------------------------------------
+    ext="${name##*.}"
+    local interpreter=""
+
+    case "$ext" in
+      zsh)
+        if command -v zsh >/dev/null 2>&1; then
+          interpreter="zsh"
+        else
+          warn "[$current/$total] Pulando $name (zsh não está instalado)."
+          continue
+        fi
+        ;;
+      bash|sh)
+        interpreter="bash"
+        ;;
+      *)
+        # Ignora arquivos que não sejam scripts nem estejam em bin/ (ex: README.md)
+        continue
+        ;;
+    esac
+
+    if (( DRY_RUN )); then
+      log "Simulação [$current/$total]: executaria setup '$name' via '$interpreter'"
+      continue
+    fi
+
+    run_with_spinner "[$current/$total]" "Executando setup $name ($interpreter)" "$interpreter" "$file"
+  done
+}
+
+
 
 install_devcontainer() {
   local target_path="$TARGET/.devcontainer"
