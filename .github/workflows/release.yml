@@ -28,18 +28,15 @@ jobs:
       - name: Package repository (zip & tar.gz)
         run: |
           mkdir -p dist
-          zip -r repo.zip . -x ".git/*" "dist/*"
-          tar --exclude=".git" --exclude="dist" -czf repo.tar.gz .
+          zip -r repo.zip . -x ".git/*" "dist/*" "packages/*"
+         # tar --exclude=".git" --exclude="dist" -czf repo.tar.gz .
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-packages-${{ github.run_number }}
           path: |
-            dist/*.deb
-            dist/*.tar.gz
-            dist/*.zip
-            install.sh
+            repo.zip
           if-no-files-found: ignore
 
       - name: Get release version
