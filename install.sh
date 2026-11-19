@@ -8,6 +8,7 @@ MODE='devcontainer'
 TARGET="$PWD"
 FORCE=0
 DRY_RUN=0
+LOG_FILE="$(mktemp "${TMPDIR:-/tmp}/rod-mobile-install.XXXXXX.log")"
 
 usage() {
   cat <<'USAGE'
@@ -34,7 +35,66 @@ USAGE
 
 log() { printf '\033[36m%s\033[0m %s\n' '[rod-mobile]' "$*" >&2; }
 warn() { printf '\033[33m%s\033[0m %s\n' '[aviso]' "$*" >&2; }
-fail() { printf '\033[31m%s\033[0m %s\n' '[erro]' "$*" >&2; exit 1; }
+fail() {
+  tput cnorm 2>/dev/null || true
+  printf '\033[31m%s\033[0m %s\n' '[erro]' "$*" >&2
+  exit 1
+}
+
+# ==============================================================================
+# UI: SPINNER E CONTROLE DE ETAPAS
+# ==============================================================================
+spinner() {
+  local pid="$1"
+  local step_prefix="$2"
+  local message="$3"
+  local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+
+  # Se não for um terminal interativo (ex: CI/CD), apenas aguarda
+  if [[ ! -t 2 ]]; then
+    wait "$pid"
+    return $?
+  fi
+
+  tput civis 2>/dev/null || true
+  while kill -0 "$pid" 2>/dev/null; do
+    local temp="${spinstr#?}"
+    printf '\r\033[36m[rod-mobile]\033[0m %s\033[33m%c\033[0m %s...' "$step_prefix" "$spinstr" "$message" >&2
+    spinstr="$temp${spinstr%"$temp"}"
+    sleep 0.1
+  done
+  tput cnorm 2>/dev/null || true
+}
+
+# Executa qualquer comando ou script com spinner e captura de erro
+run_with_spinner() {
+  local step_prefix="$1"
+  local label="$2"
+  shift 2
+
+  printf '=== %s %s ===\n' "$step_prefix" "$label" >> "$LOG_FILE"
+
+  # Roda em subshell em background para não bloquear o spinner
+  ( "$@" ) >> "$LOG_FILE" 2>&1 &
+  local pid=$!
+
+  spinner "$pid" "$step_prefix" "$label"
+
+  local exit_code=0
+  wait "$pid" || exit_code=$?
+
+  # Limpa a linha do spinner se for TTY
+  [[ -t 2 ]] && printf '\r\033[K' >&2
+
+  if [[ $exit_code -eq 0 ]]; then
+    printf '\033[36m[rod-mobile]\033[0m %s\033[32m✔\033[0m %s\n' "$step_prefix" "$label" >&2
+  else
+    printf '\033[36m[rod-mobile]\033[0m %s\033[31m✖\033[0m %s \033[31m(falhou com código %d)\033[0m\n' "$step_prefix" "$label" "$exit_code" >&2
+    warn "Últimas linhas do log ($LOG_FILE):"
+    tail -n 15 "$LOG_FILE" >&2
+    exit "$exit_code"
+  fi
+}
 
 while (($#)); do
   case "$1" in
@@ -54,16 +114,20 @@ while (($#)); do
   shift
 done
 
-for cmd in base64 tar mktemp cp mv mkdir; do
+for cmd in base64 tar mktemp cp mv mkdir find sort; do
   command -v "$cmd" >/dev/null 2>&1 || fail "Comando obrigatório ausente: $cmd"
 done
 
 TARGET="$(cd -- "$TARGET" 2>/dev/null && pwd -P)" || fail 'Diretório --target inexistente.'
 STAGING="$(mktemp -d "${TMPDIR:-/tmp}/rod-mobile.XXXXXXXX")"
-trap 'rm -rf -- "$STAGING"' EXIT
+
+cleanup() {
+  tput cnorm 2>/dev/null || true
+  rm -rf -- "$STAGING" "$LOG_FILE"
+}
+trap cleanup EXIT INT TERM
 
 # Arquivo embutido: não depende de branch, release, tarball remoto nem GitHub API.
-# Uma única solicitação HTTP baixa tudo o que é necessário para copiar o devcontainer.
 log 'Extraindo pacote embutido...'
 base64 -d <<'ROD_MOBILE_EMBEDDED_ARCHIVE' | tar -xz -C "$STAGING"
 H4sIAAAAAAACA+w8a3LbRpP+jVP0Mk5k8yNIUc8UXUp9ikTbivUqUkrKcVIiCAzJsQAMjAEkUbGP
@@ -230,6 +294,67 @@ preflight_path() {
   fi
 }
 
+# ==============================================================================
+# DETECÇÃO DE SHELL E EXECUÇÃO MODULAR (.sh, .bash, .zsh)
+# ==============================================================================
+run_modular_scripts() {
+  local search_dir="$1"
+  [[ -d "$search_dir" ]] || return 0
+
+  local user_shell
+  user_shell="$(basename "${SHELL:-sh}")"
+  log "Shell do usuário detectado: $user_shell"
+
+  # Localiza todos os .sh, .bash e .zsh ordenados alfabeticamente (ex: 01-, 02-)
+  # Exclui o install.sh e o doctor.sh (que é apenas copiado para ~/.local/bin)
+  local scripts=()
+  while IFS= read -r file; do
+    scripts+=("$file")
+  done < <(find "$search_dir" -type f \( -name "*.sh" -o -name "*.bash" -o -name "*.zsh" \) ! -name "install.sh" ! -name "doctor.sh" | sort)
+
+  local total="${#scripts[@]}"
+  if [[ $total -eq 0 ]]; then
+    return 0
+  fi
+
+  log "Executando $total script(s) de configuração encontrados..."
+
+  local current=0
+  local script name ext interpreter
+  for script in "${scripts[@]}"; do
+    current=$((current + 1))
+    name="$(basename "$script")"
+    ext="${name##*.}"
+    interpreter=""
+
+    case "$ext" in
+      zsh)
+        if command -v zsh >/dev/null 2>&1; then
+          interpreter="zsh"
+        else
+          warn "[$current/$total] Pulando $name (zsh não está instalado)."
+          continue
+        fi
+        ;;
+      bash)
+        interpreter="bash"
+        ;;
+      sh)
+        # Se o shell padrão do usuário for zsh e o script for .sh genérico,
+        # mantém bash para garantir compatibilidade POSIX/Bash sem quebrar sintaxe.
+        interpreter="bash"
+        ;;
+    esac
+
+    if (( DRY_RUN )); then
+      log "Simulação [$current/$total]: rodaria '$name' usando '$interpreter'"
+      continue
+    fi
+
+    run_with_spinner "[$current/$total]" "Executando $name ($interpreter)" "$interpreter" "$script"
+  done
+}
+
 install_devcontainer() {
   local target_path="$TARGET/.devcontainer"
   preflight_path "$target_path"
@@ -264,12 +389,15 @@ install_shell() {
   done
   if (( DRY_RUN )); then
     log "Simulação: instalaria Oh My Zsh e plugins se necessários; copiaria arquivos para $home"
+    run_modular_scripts "$STAGING/.devcontainer/scripts"
     return
   fi
+
   if [[ ! -f "$home/.oh-my-zsh/oh-my-zsh.sh" ]]; then
-    log 'Instalando Oh My Zsh sem executar instaladores remotos...'
-    git clone --quiet --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$home/.oh-my-zsh"
+    run_with_spinner "[setup]" "Instalando Oh My Zsh" \
+      git clone --quiet --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$home/.oh-my-zsh"
   fi
+
   mkdir -p -- "$plugin_root" "$home/.oh-my-zsh/custom/themes" "$home/.local/bin"
   local entries=(
     'zsh-autosuggestions|https://github.com/zsh-users/zsh-autosuggestions.git'
@@ -281,13 +409,15 @@ install_shell() {
     name="${entry%%|*}"
     url="${entry#*|}"
     if [[ ! -e "$plugin_root/$name" ]]; then
-      log "Plugin: $name"
-      git clone --quiet --depth=1 "$url" "$plugin_root/$name"
+      run_with_spinner "[plugin]" "Instalando $name" \
+        git clone --quiet --depth=1 "$url" "$plugin_root/$name"
     fi
   done
+
   for path in "$theme_path" "$zshrc" "$nanorc" "$doctor"; do
     backup_existing "$path"
   done
+
   cp -- "$STAGING/.devcontainer/zsh/zshrc" "$zshrc"
   cp -- "$STAGING/.devcontainer/nano/nanorc" "$nanorc"
   cp -- "$STAGING/.devcontainer/zsh/rod-mobile.zsh-theme" "$theme_path"
@@ -298,6 +428,10 @@ install_shell() {
   chmod 0755 "$doctor"
   zsh -n "$zshrc"
   zsh -n "$theme_path"
+
+  # Roda todos os scripts modulares (.sh, .bash, .zsh) embutidos em .devcontainer/scripts
+  run_modular_scripts "$STAGING/.devcontainer/scripts"
+
   log 'Configuração do shell instalada. Execute: exec zsh'
   warn 'O modo --shell não instala as CLIs do Dockerfile. Para todas as ferramentas, use --devcontainer e reconstrua.'
 }
