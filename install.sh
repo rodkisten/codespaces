@@ -602,7 +602,6 @@ __________process_scripts() {
     run_with_spinner "[$current/$total]" "Executando setup $name ($interpreter)" "$interpreter" "$file"
   done
 }
-
 # ==============================================================================
 # PROCESSAMENTO DE SCRIPTS: LIBS, CLIs (~/.local/bin) E SETUPS (.sh/.bash/.zsh)
 # ==============================================================================
@@ -614,11 +613,7 @@ process_scripts() {
 
   mkdir -p -- "$bin_dest" "$lib_dest"
 
-  local user_shell
-  user_shell="$(basename "${SHELL:-sh}")"
-  log "Shell do usuário detectado: $user_shell"
-
-  # 1. Instala bibliotecas compartilhadas (ex: scripts/lib/rod-ui.sh -> ~/.local/lib/)
+  # 1. Instala bibliotecas compartilhadas primeiro (scripts/lib/* -> ~/.local/lib/)
   if [[ -d "$base_dir/lib" ]]; then
     local lib_file lib_name
     for lib_file in "$base_dir/lib/"*; do
@@ -634,7 +629,14 @@ process_scripts() {
     done
   fi
 
-  # 2. Coleta todos os arquivos restantes ordenados alfabeticamente (ex: 01-, 02-)
+  # Disponibiliza a lib para todos os subscripts que rodarem na sequência
+  export ROD_UI_LIB="$lib_dest/rod-ui.sh"
+
+  local user_shell
+  user_shell="$(basename "${SHELL:-sh}")"
+  log "Shell do usuário detectado: $user_shell"
+
+  # 2. Coleta todos os arquivos restantes ordenados alfabeticamente
   local all_files=()
   while IFS= read -r file; do
     all_files+=("$file")
@@ -654,15 +656,10 @@ process_scripts() {
     # Ignora arquivos dentro de lib/ (já processados na etapa 1)
     [[ "$rel_path" == lib/* ]] && continue
 
-    # --------------------------------------------------------------------------
-    # REGRA 1: É uma CLI/binário para instalar em ~/.local/bin?
-    # Critério: está dentro de "bin/" OU possui "# @bin" nas 5 primeiras linhas
-    # --------------------------------------------------------------------------
+    # REGRA 1: Instala em ~/.local/bin (pasta bin/ ou tag # @bin no topo)
     if [[ "$rel_path" == bin/* ]] || head -n 5 "$file" 2>/dev/null | grep -qE '^#\s*@bin\b'; then
-      # Remove extensão (.sh, .bash, .zsh) para virar um comando limpo no PATH
       local cmd_name="${name%.*}"
       [[ "$name" != *.* ]] && cmd_name="$name"
-
       local target_bin="$bin_dest/$cmd_name"
 
       if (( DRY_RUN )); then
@@ -677,9 +674,7 @@ process_scripts() {
       continue
     fi
 
-    # --------------------------------------------------------------------------
-    # REGRA 2: É um script de setup para rodar agora (.sh, .bash, .zsh)?
-    # --------------------------------------------------------------------------
+    # REGRA 2: Executa scripts de setup (.sh, .bash, .zsh)
     ext="${name##*.}"
     local interpreter=""
 
@@ -696,7 +691,6 @@ process_scripts() {
         interpreter="bash"
         ;;
       *)
-        # Ignora arquivos auxiliares não executáveis (ex: README.md, .json)
         continue
         ;;
     esac
@@ -709,7 +703,6 @@ process_scripts() {
     run_with_spinner "[$current/$total]" "Executando setup $name ($interpreter)" "$interpreter" "$file"
   done
 }
-
 
 install_devcontainer() {
   local target_path="$TARGET/.devcontainer"
