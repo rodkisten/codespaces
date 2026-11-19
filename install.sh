@@ -10,6 +10,11 @@ FORCE=0
 DRY_RUN=0
 LOG_FILE="$(mktemp "${TMPDIR:-/tmp}/rod-mobile-install.XXXXXX.log")"
 
+# Arrays para o resumo final colorido
+SUMMARY_INSTALLED=()
+SUMMARY_SKIPPED=()
+SUMMARY_FAILED=()
+
 usage() {
   cat <<'USAGE'
 Rod Mobile Codespaces
@@ -18,11 +23,14 @@ Uso:
   curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/install.sh | bash
   curl -fsSL URL/install.sh | bash -s -- --force
   curl -fsSL URL/install.sh | bash -s -- --shell --force
+  curl -fsSL URL/install.sh | bash -s -- --bootstrap
 
 Opções:
   --devcontainer        Copia .devcontainer/ para o repositório atual (padrão).
   --shell               Instala somente Zsh/Oh My Zsh/tema/Nano no ambiente atual.
                         Não instala Node, Python, gcloud ou outras CLIs do Dockerfile.
+  --bootstrap           Instala CLIs modernas no ambiente atual (zoxide, micro, bat,
+                        ripgrep, pipx, uv, fd, tldr, ov) via apt/apk/custom.
   --both                Instala .devcontainer e configuração do shell atual.
   --target DIR          Diretório do projeto, quando usar --devcontainer/--both.
   --force               Faz backup e substitui configurações existentes.
@@ -50,7 +58,6 @@ spinner() {
   local message="$3"
   local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 
-  # Se não for um terminal interativo (ex: CI/CD), apenas aguarda
   if [[ ! -t 2 ]]; then
     wait "$pid"
     return $?
@@ -66,7 +73,6 @@ spinner() {
   tput cnorm 2>/dev/null || true
 }
 
-# Executa qualquer comando ou script com spinner e captura de erro
 run_with_spinner() {
   local step_prefix="$1"
   local label="$2"
@@ -74,7 +80,6 @@ run_with_spinner() {
 
   printf '=== %s %s ===\n' "$step_prefix" "$label" >> "$LOG_FILE"
 
-  # Roda em subshell em background para não bloquear o spinner
   ( "$@" ) >> "$LOG_FILE" 2>&1 &
   local pid=$!
 
@@ -83,11 +88,11 @@ run_with_spinner() {
   local exit_code=0
   wait "$pid" || exit_code=$?
 
-  # Limpa a linha do spinner se for TTY
   [[ -t 2 ]] && printf '\r\033[K' >&2
 
   if [[ $exit_code -eq 0 ]]; then
     printf '\033[36m[rod-mobile]\033[0m %s\033[32m✔\033[0m %s\n' "$step_prefix" "$label" >&2
+    return 0
   else
     printf '\033[36m[rod-mobile]\033[0m %s\033[31m✖\033[0m %s \033[31m(falhou com código %d)\033[0m\n' "$step_prefix" "$label" "$exit_code" >&2
     warn "Últimas linhas do log ($LOG_FILE):"
@@ -96,10 +101,87 @@ run_with_spinner() {
   fi
 }
 
+# Variante não-fatal para instalação de pacotes (registra falha sem abortar os demais)
+run_package_step() {
+  local step_prefix="$1"
+  local label="$2"
+  shift 2
+
+  printf '=== %s %s ===\n' "$step_prefix" "$label" >> "$LOG_FILE"
+
+  ( "$@" ) >> "$LOG_FILE" 2>&1 &
+  local pid=$!
+
+  spinner "$pid" "$step_prefix" "$label"
+
+  local exit_code=0
+  wait "$pid" || exit_code=$?
+
+  [[ -t 2 ]] && printf '\r\033[K' >&2
+
+  if [[ $exit_code -eq 0 ]]; then
+    printf '\033[36m[rod-mobile]\033[0m %s\033[32m✔\033[0m %s\n' "$step_prefix" "$label" >&2
+    return 0
+  else
+    printf '\033[36m[rod-mobile]\033[0m %s\033[31m✖\033[0m %s \033[31m(código %d)\033[0m\n' "$step_prefix" "$label" "$exit_code" >&2
+    return "$exit_code"
+  fi
+}
+
+# ==============================================================================
+# RESUMO COLORIDO EM CAIXA
+# ==============================================================================
+print_summary_box() {
+  local title="$1"
+  local total_inst="${#SUMMARY_INSTALLED[@]}"
+  local total_skip="${#SUMMARY_SKIPPED[@]}"
+  local total_fail="${#SUMMARY_FAILED[@]}"
+  local total_all=$((total_inst + total_skip + total_fail))
+
+  # Não exibe caixa se nenhuma ação foi registrada
+  [[ $total_all -eq 0 ]] && return 0
+
+  local C_RESET='\033[0m'
+  local C_BOLD='\033[1m'
+  local C_CYAN='\033[36m'
+  local C_GREEN='\033[32m'
+  local C_YELLOW='\033[33m'
+  local C_RED='\033[31m'
+  local C_DIM='\033[2m'
+
+  local list_inst="nenhum"
+  local list_skip="nenhum"
+  local list_fail="nenhum"
+
+  if [[ $total_inst -gt 0 ]]; then
+    list_inst="$(IFS=', '; echo "${SUMMARY_INSTALLED[*]}")"
+  fi
+  if [[ $total_skip -gt 0 ]]; then
+    list_skip="$(IFS=', '; echo "${SUMMARY_SKIPPED[*]}")"
+  fi
+  if [[ $total_fail -gt 0 ]]; then
+    list_fail="$(IFS=', '; echo "${SUMMARY_FAILED[*]}")"
+  fi
+
+  printf '\n' >&2
+  printf "${C_CYAN}${C_BOLD}╭────────────────────────────────────────────────────────────────────╮${C_RESET}\n" >&2
+  printf "${C_CYAN}${C_BOLD}│  ✨ %-62s │${C_RESET}\n" "$title" >&2
+  printf "${C_CYAN}${C_BOLD}├────────────────────────────────────────────────────────────────────┤${C_RESET}\n" >&2
+  printf "${C_CYAN}│${C_RESET}  ${C_BOLD}Total processado:${C_RESET} %-49s${C_CYAN}│${C_RESET}\n" "$total_all item(ns)" >&2
+  printf "${C_CYAN}│${C_RESET}  ${C_GREEN}${C_BOLD}✔ Instalados (%d):${C_RESET} ${C_GREEN}%-48s${C_RESET}${C_CYAN}│${C_RESET}\n" "$total_inst" "$list_inst" >&2
+  printf "${C_CYAN}│${C_RESET}  ${C_YELLOW}${C_BOLD}↷ Ignorados  (%d):${C_RESET} ${C_YELLOW}%-48s${C_RESET}${C_CYAN}│${C_RESET}\n" "$total_skip" "$list_skip" >&2
+  if [[ $total_fail -gt 0 ]]; then
+    printf "${C_CYAN}│${C_RESET}  ${C_RED}${C_BOLD}✖ Falharam   (%d):${C_RESET} ${C_RED}%-48s${C_RESET}${C_CYAN}│${C_RESET}\n" "$total_fail" "$list_fail" >&2
+  fi
+  printf "${C_CYAN}${C_BOLD}╰────────────────────────────────────────────────────────────────────╯${C_RESET}\n" >&2
+  printf "${C_DIM}  Log detalhado disponível em: %s${C_RESET}\n\n" "$LOG_FILE" >&2
+}
+
 while (($#)); do
   case "$1" in
     --devcontainer) MODE='devcontainer' ;;
     --shell) MODE='shell' ;;
+    --bootstrap) MODE='bootstrap' ;;
     --both) MODE='both' ;;
     --target)
       (($# >= 2)) || fail 'Faltou o caminho depois de --target.'
@@ -114,16 +196,36 @@ while (($#)); do
   shift
 done
 
-for cmd in base64 tar mktemp cp mv mkdir find sort; do
-  command -v "$cmd" >/dev/null 2>&1 || fail "Comando obrigatório ausente: $cmd"
-done
+REQUIRED_CMDS=(
+  base64
+  tar
+  mktemp
+  cp
+  mv
+  mkdir
+  find
+  sort
+)
+
+check_dependencies() {
+  local cmd
+  for cmd in "${REQUIRED_CMDS[@]}"; do
+    command -v "$cmd" >/dev/null 2>&1 || fail "Comando obrigatório ausente: $cmd"
+  done
+}
+
+check_dependencies
 
 TARGET="$(cd -- "$TARGET" 2>/dev/null && pwd -P)" || fail 'Diretório --target inexistente.'
 STAGING="$(mktemp -d "${TMPDIR:-/tmp}/rod-mobile.XXXXXXXX")"
 
 cleanup() {
   tput cnorm 2>/dev/null || true
-  rm -rf -- "$STAGING" "$LOG_FILE"
+  rm -rf -- "$STAGING"
+  # Mantém o LOG_FILE apenas se houve falha no bootstrap para consulta
+  if [[ ${#SUMMARY_FAILED[@]} -eq 0 ]]; then
+    rm -f -- "$LOG_FILE"
+  fi
 }
 trap cleanup EXIT INT TERM
 
@@ -295,6 +397,183 @@ preflight_path() {
 }
 
 # ==============================================================================
+# BOOTSTRAP: FUNÇÕES CUSTOMIZADAS, LISTA DE PACOTES E INSTALAÇÃO
+# ==============================================================================
+install_ov() {
+  local arch
+  arch="$(uname -m)"
+  [[ "$arch" == "x86_64" ]] && arch="amd64"
+  [[ "$arch" == "aarch64" ]] && arch="arm64"
+
+  local url="https://github.com/noborus/ov/releases/latest/download/ov-linux-${arch}.tar.gz"
+  curl -fsSL "$url" | tar -xz -C /usr/local/bin ov 2>/dev/null || {
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSL "$url" | tar -xz -C "$HOME/.local/bin" ov
+  }
+}
+
+# Formato: "nome_exibicao|binario_para_verificar|metodo|pacote_ou_funcao_ou_comando"
+# Métodos suportados:
+#   - pkg    : instala usando o gerenciador detectado (apt-get ou apk)
+#   - custom : se a 4ª coluna for o nome de uma função shell declarada (ex: install_ov),
+#              executa a função; caso contrário, executa como comando shell via bash -c.
+#
+# Para pacotes cujo nome difere entre apt e apk, use "apt_pkg:apk_pkg" na 4ª coluna.
+BOOTSTRAP_PACKAGES=(
+  "zoxide|zoxide|pkg|zoxide"
+  "micro|micro|pkg|micro"
+  "bat|bat|pkg|bat:bat"
+  "ripgrep|rg|pkg|ripgrep"
+  "pipx|pipx|pkg|pipx"
+  "uv|uv|custom|curl -LsSf https://astral.sh/uv/install.sh | sh"
+  "fd|fd|pkg|fd-find:fd"
+  "tldr|tldr|custom|uv tool install tldr || pipx install tldr"
+  "ov|ov|custom|install_ov"
+)
+
+run_custom_install() {
+  local step_prefix="$1"
+  local display_name="$2"
+  local spec="$3"
+
+  if declare -f "$spec" >/dev/null 2>&1; then
+    if run_package_step "$step_prefix" "Instalando $display_name ($spec)" "$spec"; then
+      SUMMARY_INSTALLED+=("$display_name")
+    else
+      SUMMARY_FAILED+=("$display_name")
+    fi
+  else
+    if run_package_step "$step_prefix" "Instalando $display_name (custom)" bash -c "$spec"; then
+      SUMMARY_INSTALLED+=("$display_name")
+    else
+      SUMMARY_FAILED+=("$display_name")
+    fi
+  fi
+}
+
+install_bootstrap() {
+  local pkg_manager=""
+  local sudo_prefix=""
+
+  if [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
+    sudo_prefix="sudo"
+  fi
+
+  # Detecta gerenciador de pacotes do sistema (apk ou apt-get)
+  if command -v apk >/dev/null 2>&1; then
+    pkg_manager="apk"
+  elif command -v apt-get >/dev/null 2>&1; then
+    pkg_manager="apt"
+  else
+    fail 'Nenhum gerenciador suportado encontrado (apk ou apt-get).'
+  fi
+
+  log "Modo Bootstrap iniciado (gerenciador detectado: $pkg_manager)"
+
+  # Garante PATH local para detectar ferramentas instaladas via uv/pipx/curl
+  export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
+  # Atualiza índice de pacotes antes de começar
+  if (( !DRY_RUN )); then
+    if [[ "$pkg_manager" == "apk" ]]; then
+      run_with_spinner "[prep]" "Atualizando índice apk" $sudo_prefix apk update
+    elif [[ "$pkg_manager" == "apt" ]]; then
+      run_with_spinner "[prep]" "Atualizando índice apt-get" env DEBIAN_FRONTEND=noninteractive $sudo_prefix apt-get update -y
+    fi
+  fi
+
+  local total="${#BOOTSTRAP_PACKAGES[@]}"
+  local current=0
+  local entry display_name bin_check method spec rest
+
+  for entry in "${BOOTSTRAP_PACKAGES[@]}"; do
+    current=$((current + 1))
+    display_name="${entry%%|*}"
+    rest="${entry#*|}"
+    bin_check="${rest%%|*}"
+    rest="${rest#*|}"
+    method="${rest%%|*}"
+    spec="${rest#*|}"
+
+    # Verifica se o binário já existe (considera batcat/fdfind no Debian/Ubuntu)
+    local already_installed=0
+    if command -v "$bin_check" >/dev/null 2>&1; then
+      already_installed=1
+    elif [[ "$bin_check" == "bat" ]] && command -v batcat >/dev/null 2>&1; then
+      already_installed=1
+    elif [[ "$bin_check" == "fd" ]] && command -v fdfind >/dev/null 2>&1; then
+      already_installed=1
+    fi
+
+    if (( already_installed )) && (( !FORCE )); then
+      printf '\033[36m[rod-mobile]\033[0m [%d/%d] \033[33m↷\033[0m %s \033[2m(já instalado, ignorado)\033[0m\n' \
+        "$current" "$total" "$display_name" >&2
+      SUMMARY_SKIPPED+=("$display_name")
+      continue
+    fi
+
+    if (( DRY_RUN )); then
+      log "Simulação [$current/$total]: instalaria '$display_name' via '$method' ($spec)"
+      SUMMARY_INSTALLED+=("$display_name")
+      continue
+    fi
+
+    if [[ "$method" == "pkg" ]]; then
+      local pkg_name="$spec"
+      if [[ "$spec" == *:* ]]; then
+        if [[ "$pkg_manager" == "apt" ]]; then
+          pkg_name="${spec%%:*}"
+        else
+          pkg_name="${spec#*:}"
+        fi
+      fi
+
+      if [[ "$pkg_manager" == "apk" ]]; then
+        if run_package_step "[$current/$total]" "Instalando $display_name (apk: $pkg_name)" \
+          $sudo_prefix apk add --no-cache "$pkg_name"; then
+          SUMMARY_INSTALLED+=("$display_name")
+        else
+          SUMMARY_FAILED+=("$display_name")
+        fi
+      elif [[ "$pkg_manager" == "apt" ]]; then
+        if run_package_step "[$current/$total]" "Instalando $display_name (apt-get: $pkg_name)" \
+          env DEBIAN_FRONTEND=noninteractive $sudo_prefix apt-get install -y --no-install-recommends "$pkg_name"; then
+          SUMMARY_INSTALLED+=("$display_name")
+        else
+          SUMMARY_FAILED+=("$display_name")
+        fi
+      fi
+
+    elif [[ "$method" == "custom" ]]; then
+      run_custom_install "[$current/$total]" "$display_name" "$spec"
+    else
+      warn "Método desconhecido '$method' para $display_name."
+      SUMMARY_FAILED+=("$display_name")
+    fi
+  done
+
+  # Cria symlinks amigáveis no Debian/Ubuntu para batcat -> bat e fdfind -> fd
+  if [[ "$pkg_manager" == "apt" ]] && (( !DRY_RUN )); then
+    mkdir -p "$HOME/.local/bin"
+    if command -v batcat >/dev/null 2>&1 && ! command -v bat >/dev/null 2>&1; then
+      ln -sf "$(command -v batcat)" "$HOME/.local/bin/bat"
+    fi
+    if command -v fdfind >/dev/null 2>&1 && ! command -v fd >/dev/null 2>&1; then
+      ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+    fi
+  fi
+
+  # Configura ov como pager padrão no perfil caso tenha sido instalado
+  if command -v ov >/dev/null 2>&1 && (( !DRY_RUN )); then
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+      if [[ -f "$rc_file" ]] && ! grep -q 'export PAGER=ov' "$rc_file"; then
+        printf '\n# Pager padrão (ov)\nexport PAGER=ov\n' >> "$rc_file"
+      fi
+    done
+  fi
+}
+
+# ==============================================================================
 # DETECÇÃO DE SHELL E EXECUÇÃO MODULAR (.sh, .bash, .zsh)
 # ==============================================================================
 run_modular_scripts() {
@@ -305,8 +584,6 @@ run_modular_scripts() {
   user_shell="$(basename "${SHELL:-sh}")"
   log "Shell do usuário detectado: $user_shell"
 
-  # Localiza todos os .sh, .bash e .zsh ordenados alfabeticamente (ex: 01-, 02-)
-  # Exclui o install.sh e o doctor.sh (que é apenas copiado para ~/.local/bin)
   local scripts=()
   while IFS= read -r file; do
     scripts+=("$file")
@@ -340,8 +617,6 @@ run_modular_scripts() {
         interpreter="bash"
         ;;
       sh)
-        # Se o shell padrão do usuário for zsh e o script for .sh genérico,
-        # mantém bash para garantir compatibilidade POSIX/Bash sem quebrar sintaxe.
         interpreter="bash"
         ;;
     esac
@@ -439,6 +714,10 @@ install_shell() {
 case "$MODE" in
   devcontainer) install_devcontainer ;;
   shell) install_shell ;;
+  bootstrap)
+    install_bootstrap
+    print_summary_box "Resumo do Bootstrap ($PROGRAM_NAME)"
+    ;;
   both)
     # Preflight combinado para evitar uma instalação parcial por conflito de dotfiles.
     preflight_path "$TARGET/.devcontainer"
@@ -446,4 +725,5 @@ case "$MODE" in
     install_devcontainer
     ;;
 esac
+
 log 'Concluído.'
