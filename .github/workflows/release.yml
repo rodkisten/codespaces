@@ -1,0 +1,81 @@
+name: 💄 Release, baby
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build installer (if available)
+        if: hashFiles('tools/build-installer.sh') != ''
+        run: bash tools/build-installer.sh
+
+      - name: Package repository (zip & tar.gz)
+        run: |
+          mkdir -p dist
+          zip -r dist/Repo.zip . -x ".git/*" "dist/*"
+          tar --exclude=".git" --exclude="dist" -czf dist/Repo.tar.gz .
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages-${{ github.run_number }}
+          path: |
+            dist/*.deb
+            dist/*.tar.gz
+            dist/*.zip
+            install.sh
+          if-no-files-found: ignore
+
+      - name: Get release version
+        id: get_version
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          (github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'chore(release)'))
+        run: |
+          # Tenta extrair algo como v1.2.3 ou 1.2.3 da mensagem do commit (ex: "chore(release): v1.2.0")
+          MSG="${{ github.event.head_commit.message }}"
+          VERSION=$(echo "$MSG" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?' | head -n 1 || true)
+
+          # Fallback: se o commit não tiver semver, gera tag por data + short SHA
+          if [ -z "$VERSION" ]; then
+            VERSION="v$(date -u +'%Y.%m.%d')-${GITHUB_SHA::7}"
+          fi
+
+          # Garante prefixo 'v'
+          case "$VERSION" in
+            v*) ;;
+            *) VERSION="v$VERSION" ;;
+          esac
+
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Versão detectada: $VERSION"
+
+      - name: Create GitHub Release
+        if: steps.get_version.outputs.value != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.value }}
+          name: ${{ steps.get_version.outputs.value }}
+          draft: true
+          generate_release_notes: true
+          files: |
+            dist/*.deb
+            dist/*.tar.gz
+            dist/*.zip
+            install.sh
