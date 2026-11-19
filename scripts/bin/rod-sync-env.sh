@@ -1,6 +1,10 @@
-# @bin
 #!/usr/bin/env bash
+# @bin
 set -Eeuo pipefail
+
+ROD_PREFIX="gh-env-sync"
+# shellcheck source=/dev/null
+source "${ROD_UI_LIB:-$HOME/.local/lib/rod-ui.sh}"
 
 usage() {
   cat <<'HELP'
@@ -29,21 +33,19 @@ while (($#)); do
     --dry-run) dry_run=true; shift;;
     --yes) yes=true; shift;;
     -h|--help) usage; exit 0;;
-    *) echo "Unknown option: $1" >&2; usage >&2; exit 2;;
+    *) usage >&2; fail "Opção desconhecida: $1";;
   esac
 done
 
-# Fail fast before opening tmux or fzf prompts
-[[ -f "$file" ]] || { echo 'Missing --file or file does not exist' >&2; exit 2; }
-[[ $limit =~ ^[0-9]+$ ]] || { echo 'Invalid --limit (must be a non-negative integer)' >&2; exit 2; }
-[[ $cache_ttl =~ ^[0-9]+$ ]] || { echo 'Invalid --cache-ttl (must be a non-negative integer)' >&2; exit 2; }
+[[ -f "$file" ]] || fail 'Faltou --file ou o arquivo não existe.'
+[[ $limit =~ ^[0-9]+$ ]] || fail 'Valor inválido para --limit.'
+[[ $cache_ttl =~ ^[0-9]+$ ]] || fail 'Valor inválido para --cache-ttl.'
 
 for cmd in gh python3; do
-  command -v "$cmd" >/dev/null || { echo "Missing required command: $cmd" >&2; exit 1; }
+  command -v "$cmd" >/dev/null || fail "Comando obrigatório ausente: $cmd"
 done
-gh auth status >/dev/null 2>&1 || { echo 'Run gh auth login first' >&2; exit 1; }
+gh auth status >/dev/null 2>&1 || fail 'Execute gh auth login primeiro.'
 
-# Launch split-pane tmux studio if running interactively outside tmux
 if [[ $tmux_inner == false && $no_tmux == false && -t 0 && -z ${TMUX:-} ]] && command -v tmux >/dev/null; then
   session="gh-env-$(date +%s)-$$"
   log_dir="${XDG_CACHE_HOME:-$HOME/.cache}/gh-env-sync/sessions"
@@ -67,7 +69,6 @@ studio_event() {
   studio_log "[$label] $message"
 }
 
-# Interactive prompts via fzf if available
 if [[ -t 0 ]] && command -v fzf >/dev/null; then
   pick_one() { printf '%s\n' "$@" | fzf --reverse --height=~10 --border=rounded --color='border:magenta,prompt:cyan'; }
   pick_many() { printf '%s\n' "$@" | fzf --multi --reverse --height=~70% --border=rounded --bind='ctrl-a:select-all' --header='TAB toggle · Ctrl-A select all · Enter confirm' --color='border:magenta,prompt:cyan,pointer:magenta,header:yellow'; }
@@ -84,15 +85,14 @@ else
   scope=${scope:-repo}
 fi
 
-[[ $type == secret || $type == variable ]] || { echo 'Invalid --type (expected secret or variable)' >&2; exit 2; }
-[[ $scope == repo || $scope == env ]] || { echo 'Invalid --scope (expected repo or env)' >&2; exit 2; }
-[[ $scope != env || -n $environment ]] || { echo 'Environment name required for --scope env' >&2; exit 2; }
+[[ $type == secret || $type == variable ]] || fail 'Valor inválido para --type (use secret ou variable).'
+[[ $scope == repo || $scope == env ]] || fail 'Valor inválido para --scope (use repo ou env).'
+[[ $scope != env || -n $environment ]] || fail 'Nome do environment obrigatório para --scope env.'
 
 tmp=$(mktemp)
 chmod 600 "$tmp"
 trap 'rm -f "$tmp" "$tmp.current" "$tmp.output" "$tmp.error"' EXIT
 
-# Parse .env file into NUL-delimited key/value pairs
 python3 - "$file" "$tmp" <<'PY'
 import pathlib, re, sys
 
@@ -137,11 +137,8 @@ if not entries:
 with open(sys.argv[2], 'wb') as out:
     for key, value in entries:
         out.write(key.encode() + b'\0' + value.encode() + b'\0')
-
-print(f'Parsed {len(entries)} assignments', file=sys.stderr)
 PY
 
-# Fetch or load cached repositories if --repo was not explicitly provided
 if (("${#repos[@]}" == 0)); then
   owner=${owner:-$(gh api user --jq .login)}
   cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/gh-env-sync"
@@ -160,18 +157,11 @@ PY
   fi
 
   if [[ $cache_fresh == false ]]; then
-    printf '\033[38;5;51m◐ Loading repositories from GitHub...\033[0m\n' >&2
+    log_info "Carregando repositórios do GitHub para $owner..."
     cache_tmp=$(mktemp "$cache_dir/.repos.XXXXXX")
     gh repo list "$owner" --limit 10000 --json nameWithOwner,pushedAt,isArchived,isFork > "$cache_tmp.json" 2>"$cache_tmp.error" &
-    fetch_pid=$!; frame=0; frames=('◐' '◓' '◑' '◒')
-    if [[ -t 2 ]]; then
-      while kill -0 "$fetch_pid" 2>/dev/null; do
-        printf '\r\033[K\033[48;5;57m\033[38;5;231m %s FETCH \033[0m %s · repositories' "${frames[frame%4]}" "$owner" >&2
-        frame=$((frame + 1)); sleep .12
-      done
-      printf '\r\033[K' >&2
-    fi
-    if wait "$fetch_pid"; then
+    spinner $! "[fetch] " "Buscando repositórios de $owner"
+    if wait $!; then
       python3 - "$cache_tmp.json" "$cache_tmp" <<'PY'
 import json, pathlib, sys
 items = json.load(open(sys.argv[1]))
@@ -185,11 +175,8 @@ PY
     else
       head -n 3 "$cache_tmp.error" >&2
       rm -f "$cache_tmp" "$cache_tmp.json" "$cache_tmp.error"
-      if [[ ! -s $cache_file ]]; then
-        echo 'Cannot load repositories and no cache exists' >&2
-        exit 1
-      fi
-      echo '⚠ GitHub unavailable; using stale repository cache' >&2
+      [[ -s $cache_file ]] || fail 'Não foi possível carregar repositórios e não há cache local.'
+      log_warn 'GitHub indisponível; usando cache local.'
     fi
   else
     studio_event 34 CACHE "Using cached repository list"
@@ -202,7 +189,7 @@ PY
   fi
 fi
 
-(("${#repos[@]}")) || { echo 'No repositories found' >&2; exit 1; }
+(("${#repos[@]}")) || fail 'Nenhum repositório encontrado.'
 
 if declare -F pick_many >/dev/null; then
   selected=$(pick_many "${repos[@]}") || exit 0
@@ -228,18 +215,15 @@ fi
 
 printf '\033[38;5;213m✦ GH ENV STUDIO ✦\033[0m\n'
 studio_event 99 TARGET "$type / $scope ${environment:-}"
-printf 'Scope: %s %s | Type: %s | Repositories: %s | Keys: %s\n' "$scope" "$environment" "$type" "${#repos[@]}" "${#keys[@]}"
-printf 'Keys: %s\n' "${keys[*]}"
-printf 'Repositories:\n'
-printf '  %s\n' "${repos[@]}"
+log_info "Scope: $scope ${environment:-} | Type: $type | Repos: ${#repos[@]} | Keys: ${#keys[@]}"
 
 if [[ $dry_run == true ]]; then
-  echo 'DRY RUN: preview only'
+  log_warn 'DRY RUN: apenas simulação'
 fi
 
 if [[ $yes != true && $dry_run != true ]]; then
   read -r -p 'Apply all changes? Type YES: ' confirmation
-  [[ $confirmation == YES ]] || { echo 'Cancelled'; exit 1; }
+  [[ $confirmation == YES ]] || fail 'Cancelado pelo usuário.'
 fi
 
 success=0; failure=0; skipped=0
@@ -249,7 +233,7 @@ for repo in "${repos[@]}"; do
 
   if [[ $scope == env && $dry_run != true ]]; then
     if ! gh api -X PUT "repos/$repo/environments/$environment" >/dev/null; then
-      echo "  ERROR creating environment" >&2
+      log_warn "Erro ao criar environment '$environment' em $repo"
       failure=$((failure + ${#keys[@]}))
       continue
     fi
@@ -259,7 +243,7 @@ for repo in "${repos[@]}"; do
     args=(variable list --repo "$repo" --json name,value)
     [[ $scope == env ]] && args+=(--env "$environment")
     if ! gh "${args[@]}" > "$tmp.current"; then
-      echo "Cannot inspect variables in $repo; skipping" >&2
+      log_warn "Não foi possível inspecionar variáveis em $repo; pulando"
       skipped=$((skipped + ${#keys[@]}))
       continue
     fi
@@ -293,13 +277,14 @@ PY
 )
       state=$(printf '%s\n' "$result" | head -n 1)
       if [[ $state == SAME ]]; then
-        printf '  ⊘ %s: SAME (skipped)\n' "$key"
+        log_skip "$key: SAME (ignorado)"
         skipped=$((skipped + 1))
         continue
       elif [[ $state == NEW ]]; then
-        printf '\033[38;5;46m+ %s\033[0m (new variable)\n' "$key"
+        log_info "$key (nova variável)"
       else
-        printf '\033[38;5;51m↻ %s\033[0m\n%s\n' "$key" "$result"
+        log_info "$key (atualizando)"
+        printf '%s\n' "$result" >&2
       fi
     fi
 
@@ -311,16 +296,10 @@ PY
       continue
     fi
 
-    # Pass value via stdin instead of --body to avoid leaking secrets in `ps`
     printf '%s' "$value" | gh "${args[@]}" > "$tmp.output" 2>"$tmp.error" &
-    pid=$!; frame=0; frames=('◐' '◓' '◑' '◒')
-    if [[ -t 2 ]]; then
-      while kill -0 "$pid" 2>/dev/null; do
-        printf '\r\033[K\033[38;5;213m%s\033[0m %s · %s' "${frames[frame%4]}" "$repo" "$key" >&2
-        frame=$((frame + 1)); sleep .12
-      done
-      printf '\r\033[K' >&2
-    fi
+    pid=$!
+    spinner "$pid" "[sync] " "$repo · $key"
+    [[ -t 2 ]] && printf '\r\033[K' >&2
 
     if wait "$pid"; then
       studio_event 34 PASS "$repo · $key"
@@ -334,5 +313,5 @@ PY
 done
 
 studio_log "[DONE] successful=$success failed=$failure skipped=$skipped"
-printf '\033[38;5;213m✦ Finished:\033[0m %d successful, %d failed, %d skipped\n' "$success" "$failure" "$skipped"
+log_ok "Finalizado: $success sucesso(s), $failure falha(s), $skipped ignorado(s)"
 ((failure == 0))
