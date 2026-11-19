@@ -1,71 +1,213 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# Rod Codespaces | Lifecycle Bootstrapper (create / start / attach)
+# Gerencia links de dotfiles, serviços de rede (Tailscale), CLIs internas e checks.
+# ==============================================================================
 set -Eeuo pipefail
-phase="${1:-start}"
-case "$phase" in create|start|attach) ;; *) echo "Usage: bootstrap.sh {create|start|attach}" >&2; exit 2;; esac
-logdir="$HOME/.local/state/rod-codespaces/logs"
-mkdir -p "$logdir"
-log="$logdir/${phase}.log"
-exec > >(tee -a "$log") 2>&1
-echo
-echo "=== Rod Codespaces / $phase ==="
-date -u '+UTC %Y-%m-%dT%H:%M:%SZ'
-echo "User: $(id -un) | Home: $HOME | Workspace: $PWD"
-trap 'status=$?; echo "=== phase '"$phase"' finished (exit $status) ==="; exit "$status"' EXIT
-if [[ "$phase" == start || "$phase" == create ]]; then
-  repo="${CODESPACE_VSCODE_FOLDER:-$PWD}"
-  source_file="$repo/zsh/zshrc"
-  if [[ -f "$source_file" ]]; then
-    if [[ -e "$HOME/.zshrc" && ! -L "$HOME/.zshrc" ]]; then
-      cp -n "$HOME/.zshrc" "$HOME/.zshrc.pre-rod-backup"
-    fi
-    ln -sfn "$source_file" "$HOME/.zshrc"
-    echo "Linked ~/.zshrc -> $source_file"
+
+# ==============================================================================
+# 1. VALIDAÇÃO DE ARGUMENTOS E VARIÁVEIS DE AMBIENTE
+# ==============================================================================
+PHASE="${1:-start}"
+case "$PHASE" in
+  create|start|attach) ;;
+  *)
+    printf '\033[31m[erro]\033[0m Uso: bootstrap.sh {create|start|attach}\n' >&2
+    exit 2
+    ;;
+esac
+
+REPO_DIR="${CODESPACE_VSCODE_FOLDER:-$PWD}"
+LOCAL_BIN="$HOME/.local/bin"
+LOG_DIR="$HOME/.local/state/rod-codespaces/logs"
+LOG_FILE="$LOG_DIR/${PHASE}.log"
+
+mkdir -p "$LOG_DIR" "$LOCAL_BIN"
+
+# ==============================================================================
+# 2. SISTEMA DE LOGS (COLORIDO NO TERMINAL + LIMPO NO ARQUIVO)
+# ==============================================================================
+# Redireciona stdout/stderr via tee, removendo sequências ANSI apenas no arquivo de log
+exec > >(tee >(sed -u 's/\x1B\[[0-9;]*[a-zA-Z]//g' >> "$LOG_FILE")) 2>&1
+
+# Paleta de cores ANSI (desativa automaticamente se não for um terminal interativo)
+if [[ -t 1 ]]; then
+  C_RESET=$'\033[0m'
+  C_BOLD=$'\033[1m'
+  C_DIM=$'\033[2m'
+  C_CYAN=$'\033[36m'
+  C_BLUE=$'\033[34m'
+  C_GREEN=$'\033[32m'
+  C_YELLOW=$'\033[33m'
+  C_RED=$'\033[31m'
+else
+  C_RESET='' C_BOLD='' C_DIM='' C_CYAN='' C_BLUE='' C_GREEN='' C_YELLOW='' C_RED=''
+fi
+
+# Controle automático de numeração das etapas
+TOTAL_STEPS=5
+CURRENT_STEP=0
+
+step() {
+  CURRENT_STEP=$((CURRENT_STEP + 1))
+  printf '\n%s[%d/%d]%s %s%s%s\n' \
+    "$C_CYAN$C_BOLD" "$CURRENT_STEP" "$TOTAL_STEPS" "$C_RESET" \
+    "$C_BOLD" "$1" "$C_RESET"
+}
+
+log_ok()   { printf '  %s✔%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+log_info() { printf '  %sℹ%s %s\n' "$C_BLUE" "$C_RESET" "$*"; }
+log_warn() { printf '  %s⚠%s %s%s%s\n' "$C_YELLOW" "$C_RESET" "$C_YELLOW" "$*" "$C_RESET"; }
+log_skip() { printf '  %s↷%s %s%s%s\n' "$C_DIM" "$C_RESET" "$C_DIM" "$*" "$C_RESET"; }
+log_run()  { printf '  %s▶%s %s...\n' "$C_CYAN" "$C_RESET" "$*"; }
+
+# ==============================================================================
+# 3. CABEÇALHO E RODAPÉ AUTOMÁTICO (TRAP)
+# ==============================================================================
+print_header() {
+  printf '%s╭──────────────────────────────────────────────────────────────╮%s\n' "$C_CYAN$C_BOLD" "$C_RESET"
+  printf '%s│  🚀 Rod Codespaces • Fase: %-33s │%s\n' "$C_CYAN$C_BOLD" "$PHASE" "$C_RESET"
+  printf '%s╰──────────────────────────────────────────────────────────────╯%s\n' "$C_CYAN$C_BOLD" "$C_RESET"
+  printf '%s  UTC: %s | User: %s | Repo: %s%s\n' \
+    "$C_DIM" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$(id -un)" "$REPO_DIR" "$C_RESET"
+}
+
+on_exit() {
+  local status=$?
+  printf '\n'
+  if [[ $status -eq 0 ]]; then
+    printf '%s✔ Fase "%s" concluída com sucesso (exit 0)%s\n' "$C_GREEN$C_BOLD" "$PHASE" "$C_RESET"
   else
-    echo "WARN: $source_file not found; preserving current ~/.zshrc"
+    printf '%s✖ Fase "%s" falhou (exit %d)%s\n' "$C_RED$C_BOLD" "$PHASE" "$status" "$C_RESET"
   fi
-fi
-if [[ "$phase" == create || "$phase" == start ]]; then
-  repo="${CODESPACE_VSCODE_FOLDER:-$PWD}"
-  if [[ -f "$repo/scripts/tailscale.sh" ]]; then
-    bash "$repo/scripts/tailscale.sh" auto || echo "WARN: Tailscale daemon or authentication unavailable"
+  printf '%s  Log salvo em: %s%s\n\n' "$C_DIM" "$LOG_FILE" "$C_RESET"
+  exit "$status"
+}
+trap on_exit EXIT
+
+# ==============================================================================
+# 4. ETAPAS DO CICLO DE VIDA (MODULARES)
+# ==============================================================================
+
+# Etapa 1: Vincula o ~/.zshrc ao repositório fazendo backup de segurança
+setup_zshrc() {
+  step "Configurando Zsh (~/.zshrc)"
+  local source_file="$REPO_DIR/zsh/zshrc"
+  local target_file="$HOME/.zshrc"
+
+  if [[ ! -f "$source_file" ]]; then
+    log_warn "$source_file não encontrado; mantendo ~/.zshrc atual."
+    return 0
   fi
-fi
-if [[ "$phase" == create || "$phase" == start ]]; then
-  repo="${CODESPACE_VSCODE_FOLDER:-$PWD}"
-  if [[ -f "$repo/scripts/rod-check" ]]; then
-    mkdir -p "$HOME/.local/bin"
-    install -m 0755 "$repo/scripts/rod-check" "$HOME/.local/bin/rod-check"
-    echo "Installed global rod-check -> $HOME/.local/bin/rod-check"
+
+  if [[ -e "$target_file" && ! -L "$target_file" ]]; then
+    cp -n "$target_file" "${target_file}.pre-rod-backup"
+    log_info "Backup criado em ${target_file}.pre-rod-backup"
+  fi
+
+  ln -sfn "$source_file" "$target_file"
+  log_ok "Link simbólico criado: ~/.zshrc → $source_file"
+}
+
+# Etapa 2: Inicializa/reconecta o Tailscale se o script existir no checkout
+setup_tailscale() {
+  step "Verificando rede Tailscale"
+  local ts_script="$REPO_DIR/scripts/tailscale.sh"
+
+  if [[ ! -f "$ts_script" ]]; then
+    log_skip "scripts/tailscale.sh ausente; pulando."
+    return 0
+  fi
+
+  log_run "Executando tailscale.sh auto"
+  if bash "$ts_script" auto; then
+    log_ok "Tailscale configurado com sucesso."
   else
-    echo "WARN: rod-check script missing; skipping"
+    log_warn "Daemon ou autenticação do Tailscale indisponível (não bloqueante)."
   fi
-fi
-# Install rodlog from this checkout when Go is available. Avoid a remote
-# release dependency at boot: the shell always matches the checked-out source.
-# A failed optional build must never make the Codespace unusable.
-if [[ "$phase" == create || "$phase" == start ]]; then
-  repo="${CODESPACE_VSCODE_FOLDER:-$PWD}"
-  if [[ "${RODLOG_BOOT_INSTALL:-1}" != 0 && -f "$repo/packages/rodlog/go.mod" ]]; then
-    if command -v go >/dev/null 2>&1; then
-      mkdir -p "$HOME/.local/bin"
-      echo "[RUN] rodlog: building from $repo/packages/rodlog"
-      if (cd "$repo/packages/rodlog" && go build -o "$HOME/.local/bin/rodlog" ./cmd/rodlog); then
-        echo "[OK] rodlog installed: $HOME/.local/bin/rodlog"
-      else
-        echo "[WARN] rodlog build failed; existing binary, if any, remains available"
-      fi
-    else
-      echo "[SKIP] rodlog: Go toolchain not available"
-    fi
+}
+
+# Etapa 3: Instala o utilitário global rod-check no PATH do usuário
+install_rod_check() {
+  step "Instalando CLI rod-check"
+  local src="$REPO_DIR/scripts/rod-check"
+  local dest="$LOCAL_BIN/rod-check"
+
+  if [[ ! -f "$src" ]]; then
+    log_warn "scripts/rod-check ausente; pulando."
+    return 0
+  fi
+
+  install -m 0755 "$src" "$dest"
+  log_ok "Instalado em $dest"
+}
+
+# Etapa 4: Compila o rodlog localmente via Go (evita depender de releases remotas)
+build_rodlog() {
+  step "Compilando rodlog (Go)"
+  local mod_dir="$REPO_DIR/packages/rodlog"
+  local out_bin="$LOCAL_BIN/rodlog"
+
+  if [[ "${RODLOG_BOOT_INSTALL:-1}" == "0" ]]; then
+    log_skip "Desabilitado via RODLOG_BOOT_INSTALL=0."
+    return 0
+  fi
+
+  if [[ ! -f "$mod_dir/go.mod" ]]; then
+    log_skip "Código-fonte ausente em $mod_dir; pulando."
+    return 0
+  fi
+
+  if ! command -v go >/dev/null 2>&1; then
+    log_skip "Toolchain Go não disponível no ambiente; pulando."
+    return 0
+  fi
+
+  log_run "Compilando $mod_dir/cmd/rodlog"
+  if (cd "$mod_dir" && go build -o "$out_bin" ./cmd/rodlog); then
+    log_ok "Binário instalado: $out_bin"
   else
-    echo "[SKIP] rodlog: disabled or source unavailable"
+    log_warn "Falha na compilação do rodlog (binário anterior preservado, se existir)."
   fi
-fi
-if [[ "$phase" == create || "$phase" == start ]]; then
-  if command -v mobile-doctor >/dev/null 2>&1; then
-    mobile-doctor || echo "WARN: doctor reported missing tools"
+}
+
+# Etapa 5: Executa diagnóstico do ambiente via mobile-doctor
+run_health_check() {
+  step "Executando diagnóstico (mobile-doctor)"
+
+  # Garante que ~/.local/bin esteja no PATH durante a verificação
+  export PATH="$LOCAL_BIN:$PATH"
+
+  if ! command -v mobile-doctor >/dev/null 2>&1; then
+    log_warn "mobile-doctor não encontrado no PATH."
+    return 0
+  fi
+
+  if mobile-doctor; then
+    log_ok "Todas as ferramentas verificadas com sucesso."
   else
-    echo "WARN: mobile-doctor not available"
+    log_warn "mobile-doctor reportou ferramentas ausentes."
   fi
-fi
-echo "Log: $log"
+}
+
+# ==============================================================================
+# 5. EXECUÇÃO PRINCIPAL (ORQUESTRAÇÃO POR FASE)
+# ==============================================================================
+main() {
+  print_header
+
+  case "$PHASE" in
+    create|start)
+      setup_zshrc
+      setup_tailscale
+      install_rod_check
+      build_rodlog
+      run_health_check
+      ;;
+    attach)
+      log_info "Fase 'attach' não requer reconfiguração de sistema."
+      ;;
+  esac
+}
+
+main "$@"
