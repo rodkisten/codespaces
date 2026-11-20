@@ -88,7 +88,10 @@ if (( DRY_RUN )); then
  log "Would install Zinit + Rod Prompt Neon for $TARGET_USER"
 elif [[ -n "${ROD_RELEASE_ROOT:-}" && -f "$ROD_RELEASE_ROOT/scripts/install-rod-zinit.sh" ]]; then
  log "Installing Zinit + Neon from verified release"
- su "$TARGET_USER" -s /bin/bash -c 'HOME="$1" ROD_ZINIT_SOURCE="$2" bash "$3/scripts/install-rod-zinit.sh"' _ "$HOME_DIR" "$ROD_RELEASE_ROOT" "$ROD_RELEASE_ROOT" || log 'WARN: Zinit installation failed'
+ if ! runuser -u "$TARGET_USER" -- env HOME="$HOME_DIR" bash "$ROD_RELEASE_ROOT/scripts/install-rod-zinit.sh"; then
+  echo 'ERROR: Zinit installation failed; aborting release installation' >&2
+  exit 1
+ fi
 else
  log 'WARN: release bundle not provided; preserving existing prompt'
 fi
