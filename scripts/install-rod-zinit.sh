@@ -17,8 +17,13 @@ if [[ ! -f "$ZINIT_HOME/zinit.zsh" ]]; then
 fi
 mkdir -p "$HOME/.config/zsh" "$HOME/.local/share/rod/codespaces/scripts"
 cp "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/rod-notify-debug.py" "$HOME/.local/share/rod/codespaces/scripts/rod-notify-debug.py"
+cp "$(dirname "$SRC")/rod-prompt-neon.zsh" "$HOME/.config/zsh/rod-prompt.zsh"
+if [[ ! -f "$HOME/.config/zsh/rod-prompt-neon.config.zsh" ]]; then
+  cp "$(dirname "$SRC")/rod-prompt-neon.config.zsh" "$HOME/.config/zsh/rod-prompt-neon.config.zsh"
+fi
+zsh -n "$HOME/.config/zsh/rod-prompt.zsh"
 cp "$SRC" "$TARGET.tmp"
 zsh -n "$TARGET.tmp"
 mv "$TARGET.tmp" "$TARGET"
 # Preserve installed Rod Prompt and Rod Notify. Do not modify Relay credentials.
-echo '💜 Installed. Run: exec zsh'
+echo '💜 Zinit + Rod Prompt Neon installed. Run: exec zsh'
