@@ -92,6 +92,10 @@ elif [[ -n "${ROD_RELEASE_ROOT:-}" && -f "$ROD_RELEASE_ROOT/scripts/install-rod-
 else
  log 'WARN: release bundle not provided; preserving existing prompt'
 fi
+if (( !DRY_RUN )) && [[ -n "${ROD_RELEASE_ROOT:-}" && -f "$ROD_RELEASE_ROOT/debian/rod-self-update.sh" ]]; then
+ install -m 0755 "$ROD_RELEASE_ROOT/debian/rod-self-update.sh" /usr/local/bin/rod-self-update
+ log 'Installed rod-self-update (--check / --self-update)'
+fi
 if (( INSTALL_TAILSCALE )); then
  log 'Installing Tailscale (login is manual)'
  if (( DRY_RUN )); then echo '[dry-run] install tailscale'; else
