@@ -22,8 +22,15 @@ if [[ ! -f "$HOME/.config/zsh/rod-prompt-neon.config.zsh" ]]; then
   cp "$(dirname "$SRC")/rod-prompt-neon.config.zsh" "$HOME/.config/zsh/rod-prompt-neon.config.zsh"
 fi
 zsh -n "$HOME/.config/zsh/rod-prompt.zsh"
-cp "$SRC" "$TARGET.tmp"
-zsh -n "$TARGET.tmp"
-mv "$TARGET.tmp" "$TARGET"
+# Preserve the user's .zshrc. A managed source line is idempotent.
+# Existing aliases, environment variables and customisations remain intact.
+SOURCE_LINE='[[ -r "$HOME/.config/zsh/rod-zinit.zshrc" ]] && source "$HOME/.config/zsh/rod-zinit.zshrc"'
+cp "$SRC" "$HOME/.config/zsh/rod-zinit.zshrc"
+zsh -n "$HOME/.config/zsh/rod-zinit.zshrc"
+touch "$TARGET"
+if ! grep -Fqx "$SOURCE_LINE" "$TARGET"; then
+  printf '\n# Rod Codespaces · managed Zinit configuration\n%s\n' "$SOURCE_LINE" >> "$TARGET"
+fi
+zsh -n "$TARGET"
 # Preserve installed Rod Prompt and Rod Notify. Do not modify Relay credentials.
 echo '💜 Zinit + Rod Prompt Neon installed. Run: exec zsh'
