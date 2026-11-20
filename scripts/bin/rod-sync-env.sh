@@ -8,14 +8,14 @@ source "${ROD_UI_LIB:-$HOME/.local/lib/rod-ui.sh}"
 
 usage() {
   cat <<'HELP'
-Usage: gh-env-sync --file .env [--type secret|variable] [--scope repo|env] [--environment production] [--limit N] [--refresh-cache] [--cache-ttl SECONDS] [--owner USER] [--repo OWNER/NAME ...] [--dry-run] [--yes]
-Defaults: secret, repo, all non-archived repositories sorted by most recent push. Cache TTL: 24 hours.
+Usage: rod-sync-env --file .env [--type secret|variable] [--scope repo|env] [--environment production] [--limit N] [--refresh-cache] [--cache-ttl SECONDS] [--owner USER] [--repo OWNER/NAME ...] [--dry-run] [--yes] [--tmux|--no-tmux]
+Defaults: secret, repo, all non-archived repositories sorted by most recent push. Cache TTL: 24 hours. Runs in the current terminal by default; --tmux opens a split tmux session.
 HELP
 }
 
 file=''; type=''; scope=''; environment=''; limit=0; owner=''
 dry_run=false; yes=false; refresh_cache=false; cache_ttl=86400
-repos=(); tmux_inner=false; no_tmux=false
+repos=(); tmux_inner=false; use_tmux=false
 
 while (($#)); do
   case "$1" in
@@ -26,7 +26,8 @@ while (($#)); do
     --limit) limit=${2:?}; shift 2;;
     --refresh-cache) refresh_cache=true; shift;;
     --tmux-inner) tmux_inner=true; shift;;
-    --no-tmux) no_tmux=true; shift;;
+    --tmux) use_tmux=true; shift;;
+    --no-tmux) use_tmux=false; shift;;
     --cache-ttl) cache_ttl=${2:?}; shift 2;;
     --owner) owner=${2:?}; shift 2;;
     --repo) repos+=("${2:?}"); shift 2;;
@@ -46,7 +47,8 @@ for cmd in gh python3; do
 done
 gh auth status >/dev/null 2>&1 || fail 'Execute gh auth login primeiro.'
 
-if [[ $tmux_inner == false && $no_tmux == false && -t 0 && -z ${TMUX:-} ]] && command -v tmux >/dev/null; then
+if [[ $use_tmux == true && $tmux_inner == false && -t 0 && -z ${TMUX:-} ]]; then
+  command -v tmux >/dev/null || fail 'tmux não está instalado; execute sem --tmux.'
   session="gh-env-$(date +%s)-$$"
   log_dir="${XDG_CACHE_HOME:-$HOME/.cache}/gh-env-sync/sessions"
   mkdir -p "$log_dir" && chmod 700 "$log_dir"
