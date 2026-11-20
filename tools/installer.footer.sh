@@ -34,68 +34,45 @@ install_devcontainer() {
   fi
   backup_existing "$target_path"
   cp -a -- "$STAGING/.devcontainer" "$target_path"
-  # Keep the generated installer compatible with the current theme on main.
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL --max-time 20 "https://raw.githubusercontent.com/rodkisten/codespaces/main/.devcontainer/zsh/rod-mobile.zsh-theme" -o "$target_path/zsh/rod-mobile.zsh-theme" || warn 'Tema remoto indisponível; usando versão embutida.'
-  fi
   log "Devcontainer instalado em $target_path"
   log 'Próximo passo: reconstruir o Codespace (Codespaces: Rebuild Container).'
 }
 
 install_shell() {
   local home="${HOME:?HOME não configurado}"
-  local plugin_root="$home/.oh-my-zsh/custom/plugins"
-  local theme_path="$home/.oh-my-zsh/custom/themes/rod-mobile.zsh-theme"
   local zshrc="$home/.zshrc"
-  local nanorc="$home/.nanorc"
-  local doctor="$home/.local/bin/mobile-doctor"
-
-  command -v git >/dev/null 2>&1 || fail 'Git é necessário para instalar Oh My Zsh e plugins.'
-  command -v zsh >/dev/null 2>&1 || fail 'Zsh não encontrado. Use --devcontainer ou instale o pacote zsh primeiro.'
-  if [[ -e "$home/.oh-my-zsh" && ! -f "$home/.oh-my-zsh/oh-my-zsh.sh" ]]; then
-    fail "Existe ~/.oh-my-zsh, mas parece incompleto. Verifique manualmente antes de continuar."
-  fi
-  for path in "$theme_path" "$zshrc" "$nanorc" "$doctor"; do
-    preflight_path "$path"
+  local config="$home/.config/zsh"
+  local zinit_home="${XDG_DATA_HOME:-$home/.local/share}/zinit/zinit.git"
+  command -v zsh >/dev/null 2>&1 || fail 'Zsh ausente.'
+  command -v git >/dev/null 2>&1 || fail 'Git ausente.'
+  for path in "$STAGING/.devcontainer/zsh/rod-prompt-neon.zsh" "$STAGING/.devcontainer/zsh/rod-prompt-neon.config.zsh" "$STAGING/.devcontainer/zsh/rod-zinit.zshrc"; do
+    [[ -s "$path" ]] || fail "Arquivo ausente: $path"
+    zsh -n "$path" || fail "Sintaxe Zsh inválida: $path"
   done
   if (( DRY_RUN )); then
-    log "Simulação: instalaria Oh My Zsh e plugins se necessários; copiaria arquivos para $home"
+    log "Simulação: Zinit + Neon em $config; ~/.zshrc preservado"
     return
   fi
-  if [[ ! -f "$home/.oh-my-zsh/oh-my-zsh.sh" ]]; then
-    log 'Instalando Oh My Zsh sem executar instaladores remotos...'
-    git clone --quiet --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$home/.oh-my-zsh"
+  mkdir -p "$config" "$home/.local/bin" "$(dirname "$zinit_home")"
+  if [[ ! -f "$zinit_home/zinit.zsh" ]]; then
+    git clone --depth 1 https://github.com/zdharma-continuum/zinit.git "$zinit_home" || fail 'Não foi possível instalar Zinit.'
   fi
-  mkdir -p -- "$plugin_root" "$home/.oh-my-zsh/custom/themes" "$home/.local/bin"
-  local entries=(
-    'zsh-autosuggestions|https://github.com/zsh-users/zsh-autosuggestions.git'
-    'zsh-syntax-highlighting|https://github.com/zsh-users/zsh-syntax-highlighting.git'
-    'zsh-completions|https://github.com/zsh-users/zsh-completions.git'
-  )
-  local entry name url
-  for entry in "${entries[@]}"; do
-    name="${entry%%|*}"
-    url="${entry#*|}"
-    if [[ ! -e "$plugin_root/$name" ]]; then
-      log "Plugin: $name"
-      git clone --quiet --depth=1 "$url" "$plugin_root/$name"
-    fi
-  done
-  for path in "$theme_path" "$zshrc" "$nanorc" "$doctor"; do
-    backup_existing "$path"
-  done
-  cp -- "$STAGING/.devcontainer/zsh/zshrc" "$zshrc"
-  cp -- "$STAGING/.devcontainer/nano/nanorc" "$nanorc"
-  cp -- "$STAGING/.devcontainer/zsh/rod-mobile.zsh-theme" "$theme_path"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL --max-time 20 "https://raw.githubusercontent.com/rodkisten/codespaces/main/.devcontainer/zsh/rod-mobile.zsh-theme" -o "$theme_path" || warn 'Tema remoto indisponível; usando versão embutida.'
+  backup_existing "$config/rod-prompt.zsh"
+  cp "$STAGING/.devcontainer/zsh/rod-prompt-neon.zsh" "$config/rod-prompt.zsh"
+  cp "$STAGING/.devcontainer/zsh/rod-zinit.zshrc" "$config/rod-zinit.zshrc"
+  if [[ ! -e "$config/rod-prompt-neon.config.zsh" ]]; then
+    cp "$STAGING/.devcontainer/zsh/rod-prompt-neon.config.zsh" "$config/rod-prompt-neon.config.zsh"
   fi
-  cp -- "$STAGING/.devcontainer/scripts/doctor.sh" "$doctor"
-  chmod 0755 "$doctor"
-  zsh -n "$zshrc"
-  zsh -n "$theme_path"
-  log 'Configuração do shell instalada. Execute: exec zsh'
-  warn 'O modo --shell não instala as CLIs do Dockerfile. Para todas as ferramentas, use --devcontainer e reconstrua.'
+  local source_line='[[ -r "$HOME/.config/zsh/rod-zinit.zshrc" ]] && source "$HOME/.config/zsh/rod-zinit.zshrc"'
+  if [[ -L "$zshrc" ]]; then
+    warn "~/.zshrc é symlink: preservado. Adicione manualmente: $source_line"
+  else
+    [[ -f "$zshrc" ]] && cp -p "$zshrc" "$zshrc.backup-$(date -u +%Y%m%dT%H%M%SZ)"
+    touch "$zshrc"
+    grep -Fqx "$source_line" "$zshrc" || printf '\n# Rod Codespaces · Zinit + Neon\n%s\n' "$source_line" >> "$zshrc"
+    zsh -n "$zshrc" || fail 'Erro de sintaxe no ~/.zshrc após instalação.'
+  fi
+  log 'Zinit + Rod Prompt Neon instalados. Execute: exec zsh'
 }
 
 case "$MODE" in
