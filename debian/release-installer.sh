@@ -22,7 +22,13 @@ if [[ "$VERSION" != latest ]]; then
 fi
 tmp="$(mktemp -d)"
 trap 'rm -rf -- "$tmp"' EXIT
-api_get "$release_url" > "$tmp/release.json" || die "Release unavailable: $VERSION"
+if ! api_get "$release_url" > "$tmp/release.json"; then
+  if [[ "$VERSION" != latest && "$VERSION" != v* ]]; then
+    api_get "$API/tags/v$VERSION" > "$tmp/release.json" || die "Release unavailable: $VERSION"
+  else
+    die "Release unavailable: $VERSION"
+  fi
+fi
 python3 - "$tmp/release.json" "$ASSET" > "$tmp/metadata" <<'PY'
 import json,sys
 data=json.load(open(sys.argv[1]))
@@ -44,7 +50,11 @@ installed_version_file="/var/lib/rod-debian/version"
 current="$(cat "$installed_version_file" 2>/dev/null || true)"
 if [[ "$MODE" == check || "$MODE" == update ]]; then
   printf 'Installed: %s | Available: %s\n' "${current:-unknown}" "$tag"
-  [[ "$MODE" == check || "$current" == "$tag" ]] && exit 0
+  if [[ "$MODE" == check || "$current" == "$tag" ]]; then exit 0; fi
+  if [[ -n "$current" ]] && command -v sort >/dev/null && [[ "$(printf '%s\\n%s\\n' "${current#v}" "${tag#v}" | sort -V | tail -n 1)" == "${current#v}" ]]; then
+    printf 'Already at a newer release: %s\\n' "$current"
+    exit 0
+  fi
 fi
 curl -fL --retry 2 --connect-timeout 10 --max-time 180 "$url" -o "$tmp/release.zip"
 printf '%s  %s\n' "$digest" "$tmp/release.zip" | sha256sum -c - >/dev/null || die 'SHA256 mismatch'
