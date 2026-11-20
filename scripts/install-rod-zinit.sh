@@ -47,12 +47,22 @@ if ! grep -Fqx "$SOURCE_LINE" "$TARGET"; then
   printf '\n# Rod Codespaces · managed Zinit configuration\n%s\n' "$SOURCE_LINE" >> "$TARGET"
 fi
 
-# 5. Valida sintaxe e pré-compila bytecode (.zwc) para boot instantâneo
+# 5. Valida sintaxe e pré-compila bytecode (.zwc) para boot instantânea
 zsh -n "$TARGET" "$ZSH_CFG_DIR/rod-zinit.zsh" "$ZSH_CFG_DIR/rod-prompt.zsh"
+
 zsh -c '
-  for f in "$HOME/.zshrc" "$HOME/.config/zsh/"*.zsh; do
+  setopt extended_glob
+  # ([1-9][0-9]#) = número sem zero à esquerda
+  # (NnOn[1])     = N: nullglob | n: ordenação numérica (10 > 2) | O: ordem reversa | [1]: pega só o maior
+  latest=( "$HOME/.config/zsh/"zshrc([1-9][0-9]#).sh(NnOn[1]) )
+
+  for f in "$HOME/.zshrc" "$HOME/.config/zsh/"*.zsh $latest; do
     [[ -r "$f" ]] && zcompile "$f" 2>/dev/null || true
   done
 '
+
+
+
+
 
 echo '💜 Zinit + Rod Prompt Neon installed. Run: exec zsh'
