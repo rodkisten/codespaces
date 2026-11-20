@@ -91,22 +91,18 @@ trap on_exit EXIT
 
 # Etapa 1: Vincula o ~/.zshrc ao repositório fazendo backup de segurança
 setup_zshrc() {
-  step "Configurando Zsh (~/.zshrc)"
-  local source_file="$REPO_DIR/zsh/zshrc"
+  step "Verificando Zsh (~/.zshrc)"
   local target_file="$HOME/.zshrc"
-
-  if [[ ! -f "$source_file" ]]; then
-    log_warn "$source_file não encontrado; mantendo ~/.zshrc atual."
-    return 0
+  # Never replace user dotfiles with symlinks during Codespaces lifecycle.
+  # The shell installer owns the optional managed source line.
+  if [[ -L "$target_file" ]]; then
+    log_warn "~/.zshrc é symlink; preservado sem alterações."
+  elif [[ -f "$target_file" ]]; then
+    log_ok "~/.zshrc existente preservado."
+  else
+    touch "$target_file"
+    log_ok "~/.zshrc inicializado."
   fi
-
-  if [[ -e "$target_file" && ! -L "$target_file" ]]; then
-    cp -n "$target_file" "${target_file}.pre-rod-backup"
-    log_info "Backup criado em ${target_file}.pre-rod-backup"
-  fi
-
-  ln -sfn "$source_file" "$target_file"
-  log_ok "Link simbólico criado: ~/.zshrc → $source_file"
 }
 
 # Etapa 2: Inicializa/reconecta o Tailscale se o script existir no checkout
