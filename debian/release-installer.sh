@@ -51,8 +51,8 @@ current="$(cat "$installed_version_file" 2>/dev/null || true)"
 if [[ "$MODE" == check || "$MODE" == update ]]; then
   printf 'Installed: %s | Available: %s\n' "${current:-unknown}" "$tag"
   if [[ "$MODE" == check || "$current" == "$tag" ]]; then exit 0; fi
-  if [[ -n "$current" ]] && command -v sort >/dev/null && [[ "$(printf '%s\\n%s\\n' "${current#v}" "${tag#v}" | sort -V | tail -n 1)" == "${current#v}" ]]; then
-    printf 'Already at a newer release: %s\\n' "$current"
+  if [[ -n "$current" ]] && command -v sort >/dev/null && [[ "$(printf '%s\n%s\n' "${current#v}" "${tag#v}" | sort -V | tail -n 1)" == "${current#v}" ]]; then
+    printf 'Already at a newer release: %s\n' "$current"
     exit 0
   fi
 fi
@@ -65,7 +65,7 @@ with zipfile.ZipFile(sys.argv[1]) as z:
         p=pathlib.PurePosixPath(entry.filename)
         if p.is_absolute() or '..' in p.parts or entry.filename.startswith('\\'):
             sys.exit('Unsafe ZIP path')
-        if (entry.external_attr >> 16) & 0o170000 == 0o120000:
+        if ((entry.external_attr >> 16) & 0o170000) == 0o120000:
             sys.exit('ZIP symlink not allowed')
 PY
 mkdir -p "$tmp/unpacked"
