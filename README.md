@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/install.s
 exec zsh
 ```
 
-Esse modo instala as configurações `~/.zshrc`, `~/.nanorc`, o tema, Oh My Zsh (se necessário), três plugins extras e `~/.local/bin/mobile-doctor`. Exige **Zsh e Git já instalados**. Não instala o stack completo (Node, Python, gcloud, etc.). O `--force` cria backups individuais dos arquivos existentes.
+O fluxo atualizado nos fontes instala Zinit + Neon e preserva `~/.zshrc`; o `install.sh` gerado precisa ser atualizado antes de utilizar este modo. Exige **Zsh e Git já instalados**. Não instala o stack completo (Node, Python, gcloud, etc.). O `--force` cria backups individuais dos arquivos existentes.
 
 **Importante:** alterações feitas apenas no `$HOME` de um Codespace podem desaparecer quando o container for reconstruído. Se quiser persistência da imagem inteira, use o modo padrão `.devcontainer/`.
 
@@ -287,7 +287,7 @@ O instalador instala o Zinit, copia o tema e configura o carregamento por uma ú
 
 Edite `~/.config/zsh/rod-prompt-neon.config.zsh` para escolher `ROD_PROMPT_DIR_MODE`, `ROD_PROMPT_BRANCH_MODE`, `ROD_PROMPT_ERROR_POSITION`, `ROD_PROMPT_GIT_CACHE_TTL`, `ROD_PROMPT_GIT_SYNC_INTERVAL`, `ROD_PROMPT_GIT_FETCH`, ícones e cores. O fetch remoto é opt-in (padrão 0). Indicadores locais usam cache com TTL e podem causar uma breve consulta Git quando expiram.
 
-**Atenção sobre instaladores legados:** o `install.sh --shell` autocontido ainda instala a configuração antiga com Oh My Zsh; não é o instalador do Neon 2. Use o fluxo Zinit acima até a migração do pacote embutido. O modo padrão `install.sh` continua voltado à configuração do devcontainer e exige rebuild. Não execute os dois instaladores de shell sobre o mesmo ambiente.
+**Atenção ao pacote gerado:** os fontes de `tools/installer.footer.sh` e `.devcontainer/` já usam Zinit + Neon, mas `install.sh` na raiz precisa ser regenerado com `bash tools/build-installer.sh` e versionado antes de usar o comando remoto. Até lá, prefira `scripts/install-rod-zinit.sh`. O modo padrão de devcontainer exige rebuild.
 
 ## 💜 Rod Zsh com Zinit (sem Oh My Zsh)
 
