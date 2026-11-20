@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -25,19 +25,13 @@ jobs:
         if: hashFiles('tools/build-installer.sh') != ''
         run: bash tools/build-installer.sh
 
-      - name: Package repository (zip & tar.gz)
-        run: |
-          mkdir -p dist
-          zip -r repo.zip . -x ".git/*" "dist/*" "packages/*"
-         # tar --exclude=".git" --exclude="dist" -czf repo.tar.gz .
-
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-packages-${{ github.run_number }}
           path: |
-            repo.zip
-          if-no-files-found: ignore
+            .
+            !.git/
 
       - name: Get release version
         id: get_version
