@@ -271,6 +271,24 @@ exec zsh
 Verifique erros e status com `command rod_missing_123; echo $?` (esperado: 127). O doctor não instala Zplug, Oh My Zsh ou outros plugins. **Não execute instaladores antigos do Relay enquanto houver erros de codificação.** O token deve permanecer em arquivo privado, nunca no GitHub ou no histórico.
 
 
+## 💜 Rod Prompt Neon 2 · Zinit sem Oh My Zsh
+
+O tema novo vive em `config/zsh/rod-prompt-neon.zsh` e as opções em `config/zsh/rod-prompt-neon.config.zsh`. O plugin `zsh-syntax-highlighting` é opcional: a renderização do prompt não depende dele.
+
+Instalação recomendada no Codespaces atual (preserva seu `~/.zshrc`, com backup):
+
+```bash
+git clone --depth 1 https://github.com/rodkisten/codespaces.git /tmp/rod-codespaces
+bash /tmp/rod-codespaces/scripts/install-rod-zinit.sh
+exec zsh
+```
+
+O instalador instala o Zinit, copia o tema e configura o carregamento por uma única linha gerenciada. Em instalações seguintes, mantém o arquivo de preferências existente. Para atualizar, execute `git -C /tmp/rod-codespaces pull --ff-only` e rode novamente o instalador.
+
+Edite `~/.config/zsh/rod-prompt-neon.config.zsh` para escolher `ROD_PROMPT_DIR_MODE`, `ROD_PROMPT_BRANCH_MODE`, `ROD_PROMPT_ERROR_POSITION`, `ROD_PROMPT_GIT_CACHE_TTL`, `ROD_PROMPT_GIT_SYNC_INTERVAL`, `ROD_PROMPT_GIT_FETCH`, ícones e cores. O fetch remoto é opt-in (padrão 0). Indicadores locais usam cache com TTL e podem causar uma breve consulta Git quando expiram.
+
+**Atenção sobre instaladores legados:** o `install.sh --shell` autocontido ainda instala a configuração antiga com Oh My Zsh; não é o instalador do Neon 2. Use o fluxo Zinit acima até a migração do pacote embutido. O modo padrão `install.sh` continua voltado à configuração do devcontainer e exige rebuild. Não execute os dois instaladores de shell sobre o mesmo ambiente.
+
 ## 💜 Rod Zsh com Zinit (sem Oh My Zsh)
 
 O Rod Zsh usa plugins Zinit (completions, autosuggestions, history-substring-search e syntax-highlighting), configurações de histórico, fzf, aliases e helpers de CLI. O Rod Prompt e o Rod Notify permanecem independentes. O instalador faz backup de `~/.zshrc` e não modifica o token do Relay.
