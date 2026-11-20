@@ -70,11 +70,21 @@ case "$ARCHIVE" in
     ;;
 esac
 
-# 3. Localiza o install.sh dentro da pasta extraída (mesmo se houver pasta raiz aninhada)
-INSTALLER="$(find "$EXTRACT_DIR" -maxdepth 2 -type f -name "install.sh" | head -n 1)"
-[[ -n "$INSTALLER" ]] || { echo "install.sh não encontrado dentro da release." >&2; exit 1; }
-chmod +x "$INSTALLER"
+# 3. Localiza o installer.sh dentro da pasta extraída (mesmo se houver pasta raiz aninhada)
+INSTALLER_NAME="installer.sh"
+FOUND_PATH="$(find "$EXTRACT_DIR" -maxdepth 2 -type f -name "$INSTALLER_NAME" | head -n 1)"
 
+if [[ -z "$FOUND_PATH" ]]; then
+  echo "$INSTALLER_NAME não encontrado dentro da release." >&2
+  echo "Conteúdos da pasta ($EXTRACT_DIR):" >&2
+  ls -la "$EXTRACT_DIR" >&2
+  exit 1
+fi
+
+# Converte para o caminho absoluto completo
+INSTALLER="$(realpath "$FOUND_PATH")"
+
+chmod +x "$INSTALLER"
 # 4. Preserva o diretório original caso --target não tenha sido passado explicitamente
 HAS_TARGET=0
 for arg in "${FORWARD_ARGS[@]}"; do
@@ -83,5 +93,6 @@ done
 (( HAS_TARGET )) || FORWARD_ARGS+=(--target "$ORIG_PWD")
 
 # 5. Executa o instalador real propagando todas as flags
-cd "$(dirname "$INSTALLER")"
-exec ./install.sh --mode real-install "${FORWARD_ARGS[@]}"
+cd "$(dirname "$INSTALLER")" || exit 1
+exec "$INSTALLER" --mode real-install "${FORWARD_ARGS[@]}"
+
