@@ -75,6 +75,8 @@ bash -n "$tmp/unpacked/debian/install.sh" || die 'Invalid Debian installer synta
 if [[ "$EUID" -ne 0 ]]; then
   die "Run as root with sudo; downloaded ZIP was verified but not installed"
 fi
+# The target user must read the verified bundle while Zinit installs without root privileges.
+chmod 0755 "$tmp" "$tmp/unpacked"
 ROD_RELEASE_ROOT="$tmp/unpacked" bash "$tmp/unpacked/debian/install.sh" "${ARGS[@]}"
 if [[ " ${ARGS[*]} " != *" --dry-run "* ]]; then
   mkdir -p /var/lib/rod-debian
