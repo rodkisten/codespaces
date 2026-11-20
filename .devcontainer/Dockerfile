@@ -66,30 +66,27 @@ RUN set -eux; \
     su "$USERNAME" -s /bin/bash -c 'PROFILE=/dev/null bash /tmp/install-nvm.sh'; \
     rm -f /tmp/install-nvm.sh
 
-# The base image ALREADY includes Oh My Zsh, so do not install it twice.
+# Native Zinit prompt: the base image may contain OMZ, but it is never sourced.
 RUN set -eux; \
-    test -d "/home/${USERNAME}/.oh-my-zsh"; \
-    custom="/home/${USERNAME}/.oh-my-zsh/custom/plugins"; \
-    mkdir -p "$custom"; \
-    git clone --quiet --depth=1 https://github.com/zsh-users/zsh-autosuggestions.git \
-      "$custom/zsh-autosuggestions"; \
-    git clone --quiet --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting.git \
-      "$custom/zsh-syntax-highlighting"; \
-    git clone --quiet --depth=1 https://github.com/zsh-users/zsh-completions.git \
-      "$custom/zsh-completions"; \
-    chown -R "${USERNAME}:${USERNAME}" "/home/${USERNAME}/.oh-my-zsh/custom"; \
+    mkdir -p "/home/${USERNAME}/.local/share/zinit"; \
+    git clone --quiet --depth=1 https://github.com/zdharma-continuum/zinit.git \
+      "/home/${USERNAME}/.local/share/zinit/zinit.git"; \
+    chown -R "${USERNAME}:${USERNAME}" "/home/${USERNAME}/.local/share/zinit"; \
     chsh -s /usr/bin/zsh "$USERNAME"
 
-COPY zsh/zshrc /tmp/rod-zshrc
-COPY zsh/rod-mobile.zsh-theme /tmp/rod-mobile.zsh-theme
+COPY zsh/rod-zinit.zshrc /tmp/rod-zinit.zshrc
+COPY zsh/rod-prompt-neon.zsh /tmp/rod-prompt-neon.zsh
+COPY zsh/rod-prompt-neon.config.zsh /tmp/rod-prompt-neon.config.zsh
 COPY nano/nanorc /tmp/rod-nanorc
 COPY scripts/doctor.sh /usr/local/bin/mobile-doctor
 
 RUN set -eux; \
-    install -o "$USERNAME" -g "$USERNAME" -m 0644 \
-      /tmp/rod-zshrc "/home/${USERNAME}/.zshrc"; \
-    install -o "$USERNAME" -g "$USERNAME" -m 0644 \
-      /tmp/rod-mobile.zsh-theme "/home/${USERNAME}/.oh-my-zsh/custom/themes/rod-mobile.zsh-theme"; \
+    mkdir -p "/home/${USERNAME}/.config/zsh"; \
+    printf '%s\\n' '[[ -r "$HOME/.config/zsh/rod-zinit.zshrc" ]] && source "$HOME/.config/zsh/rod-zinit.zshrc"' > "/home/${USERNAME}/.zshrc"; \
+    install -o "$USERNAME" -g "$USERNAME" -m 0644 /tmp/rod-zinit.zshrc "/home/${USERNAME}/.config/zsh/rod-zinit.zshrc"; \
+    install -o "$USERNAME" -g "$USERNAME" -m 0644 /tmp/rod-prompt-neon.zsh "/home/${USERNAME}/.config/zsh/rod-prompt.zsh"; \
+    install -o "$USERNAME" -g "$USERNAME" -m 0644 /tmp/rod-prompt-neon.config.zsh "/home/${USERNAME}/.config/zsh/rod-prompt-neon.config.zsh"; \
+    chown "$USERNAME:$USERNAME" "/home/${USERNAME}/.zshrc"; \
     install -o "$USERNAME" -g "$USERNAME" -m 0644 \
       /tmp/rod-nanorc "/home/${USERNAME}/.nanorc"; \
     chmod 0755 /usr/local/bin/mobile-doctor; \

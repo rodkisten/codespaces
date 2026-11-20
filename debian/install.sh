@@ -72,7 +72,7 @@ run mkdir -p "$HOME_DIR/code" "$HOME_DIR/.local/bin" "$HOME_DIR/.config"
 run chown -R "$TARGET_USER:$TARGET_USER" "$HOME_DIR/code" "$HOME_DIR/.local" "$HOME_DIR/.config"
 if command -v zsh >/dev/null; then run usermod -s "$(command -v zsh)" "$TARGET_USER"; fi
 if (( INSTALL_LANGUAGES )); then
- log 'Installing uv, rustup and zplug for non-root user'
+ log 'Installing uv and rustup for non-root user'
  if (( !DRY_RUN )); then
   if [[ ! -x "$HOME_DIR/.local/bin/uv" ]]; then
    su - "$TARGET_USER" -s /bin/bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' || log 'WARN uv install failed'
@@ -80,31 +80,24 @@ if (( INSTALL_LANGUAGES )); then
   if [[ ! -x "$HOME_DIR/.cargo/bin/rustup" ]]; then
    su - "$TARGET_USER" -s /bin/bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path' || log 'WARN rustup install failed'
   fi
-  if [[ ! -d "$HOME_DIR/.zplug" ]]; then
-   su - "$TARGET_USER" -s /bin/bash -c 'git clone --depth 1 https://github.com/zplug/zplug.git ~/.zplug' || log 'WARN zplug clone failed'
-  fi
+
  fi
 fi
-# Install or update Rod Prompt without overwriting the user's existing Zsh config.
+# Install the theme from the verified release ZIP, not from main.
 if (( DRY_RUN )); then
- log "Would install Rod Prompt for $TARGET_USER"
-else
- theme_dir="$HOME_DIR/.config/zsh"
- run mkdir -p "$theme_dir"
- theme_tmp="$(mktemp)"
- if curl -fsSL --max-time 20 "https://raw.githubusercontent.com/rodkisten/codespaces/main/.devcontainer/zsh/rod-mobile.zsh-theme" -o "$theme_tmp"; then
-   install -m 0644 "$theme_tmp" "$theme_dir/rod-prompt.zsh"
-   chown "$TARGET_USER:$TARGET_USER" "$theme_dir/rod-prompt.zsh"
-   touch "$HOME_DIR/.zshrc"
-   if ! grep -Fq 'source "$HOME/.config/zsh/rod-prompt.zsh"' "$HOME_DIR/.zshrc"; then
-     printf '\n# Rod Prompt Neon\nsource "$HOME/.config/zsh/rod-prompt.zsh"\n' >> "$HOME_DIR/.zshrc"
-   fi
-   chown "$TARGET_USER:$TARGET_USER" "$HOME_DIR/.zshrc"
-   log 'Rod Prompt Neon configured'
- else
-   log 'WARN: Rod Prompt download failed; keeping existing shell config'
+ log "Would install Zinit + Rod Prompt Neon for $TARGET_USER"
+elif [[ -n "${ROD_RELEASE_ROOT:-}" && -f "$ROD_RELEASE_ROOT/scripts/install-rod-zinit.sh" ]]; then
+ log "Installing Zinit + Neon from verified release"
+ if ! runuser -u "$TARGET_USER" -- env HOME="$HOME_DIR" bash "$ROD_RELEASE_ROOT/scripts/install-rod-zinit.sh"; then
+  echo 'ERROR: Zinit installation failed; aborting release installation' >&2
+  exit 1
  fi
- rm -f "$theme_tmp"
+else
+ log 'WARN: release bundle not provided; preserving existing prompt'
+fi
+if (( !DRY_RUN )) && [[ -n "${ROD_RELEASE_ROOT:-}" && -f "$ROD_RELEASE_ROOT/debian/rod-self-update.sh" ]]; then
+ install -m 0755 "$ROD_RELEASE_ROOT/debian/rod-self-update.sh" /usr/local/bin/rod-self-update
+ log 'Installed rod-self-update (--check / --self-update)'
 fi
 if (( INSTALL_TAILSCALE )); then
  log 'Installing Tailscale (login is manual)'

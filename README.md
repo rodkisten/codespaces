@@ -1,93 +1,43 @@
 # Rod Mobile Codespaces 📱
 
-Um kit portátil de desenvolvimento para usar no **GitHub Codespaces pelo iPhone**: Dockerfile Debian, Zsh/Oh My Zsh, prompt compacto de duas linhas, Nano com soft wrap, Node, Python + uv, gcloud, Wrangler, kubectl e utilitários.
+Um kit portátil de desenvolvimento para usar no **GitHub Codespaces pelo iPhone**: Dockerfile Debian, Zsh/Zinit, prompt compacto de duas linhas, Nano com soft wrap, Node, Python + uv, gcloud, Wrangler, kubectl e utilitários.
 
-## Instalação com um único `curl`
+## 🐧 Debian · instalador versionado e self-update
 
-Publique este repositório no GitHub (público, caso queira fazer `curl` sem autenticação). Troque `rodkisten/codespaces` pelo caminho real do seu repositório:
+O Worker em `shell.migos.club` serve um bootstrap Bash pequeno, sem arquivo ZIP embutido. O bootstrap consulta **GitHub Releases** do repositório, baixa o asset `rod-debian.zip`, valida o digest SHA-256 informado pela API do GitHub, rejeita caminhos inseguros no ZIP e executa `debian/install.sh` do pacote verificado.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/install.sh | bash
+curl -fsSL https://shell.migos.club/debian/installer -o /tmp/rod-install.sh
+sudo bash /tmp/rod-install.sh
+
+# Versão fixa
+curl -fsSL https://shell.migos.club/debian/installer/1.0.0 -o /tmp/rod-install.sh
+sudo bash /tmp/rod-install.sh
+
+# Após a instalação
+rod-self-update --check
+sudo rod-self-update --self-update
 ```
 
-Rode o comando **a partir da raiz do repositório do projeto** que receberá a pasta `.devcontainer/`.
+`--check` consulta a última release sem modificar o sistema. `--self-update` instala a última release estável se for diferente da versão registrada. As releases devem conter o ZIP `rod-debian.zip` com o diretório `debian/`, `config/zsh/` e os scripts necessários. O workflow `.github/workflows/debian-release.yml` publica os assets a partir de tags SemVer.
 
-A instalação padrão **não executa Docker nem altera o shell atual**. Ela instala a configuração do devcontainer. Para instalar as ferramentas, depois escolha no Codespaces **Command Palette → Codespaces: Rebuild Container**. Essa reconstrução é necessária porque Dockerfile/`devcontainer.json` não modificam um container em execução.
+O endpoint só estará disponível após o merge e deploy do PR do Worker. Não execute esses comandos antes da primeira release válida.
 
-### Se o projeto já tiver `.devcontainer/`
+## Instalação simples, sem gerador autocontido
 
-O instalador **não sobrescreve** configurações existentes sem `--force`:
+O Codespaces usa diretamente os arquivos versionados em `.devcontainer/`. Para um projeto novo, clone o repositório e abra-o no GitHub Codespaces. Para usar a configuração em outro projeto, copie `.devcontainer/` para o projeto e reconstrua o container. Não existe mais `install.sh` na raiz, arquivo embutido em base64 nem etapa de regeneração.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/install.sh | bash -s -- --force
-```
-
-O diretório antigo é movido para `.devcontainer.backup-AAAAmmddTHHMMSSZ` antes da instalação nova. **Atenção:** neste caso é feita a troca do diretório inteiro, não o merge de configurações existentes.
-
-### Instalar só Zsh/tema/Nano no Codespace que já está aberto
+Para instalar ou atualizar apenas o Zsh, Zinit e Rod Prompt Neon no ambiente atual:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/install.sh | bash -s -- --shell --force
+git clone https://github.com/rodkisten/codespaces.git /tmp/rod-codespaces
+bash /tmp/rod-codespaces/scripts/install-rod-zinit.sh
 exec zsh
 ```
 
-Esse modo instala as configurações `~/.zshrc`, `~/.nanorc`, o tema, Oh My Zsh (se necessário), três plugins extras e `~/.local/bin/mobile-doctor`. Exige **Zsh e Git já instalados**. Não instala o stack completo (Node, Python, gcloud, etc.). O `--force` cria backups individuais dos arquivos existentes.
+O instalador do Zinit preserva `~/.zshrc` e as preferências em `~/.config/zsh/rod-prompt-neon.config.zsh`. Para atualizar o checkout existente, use `git -C /tmp/rod-codespaces pull --ff-only` e rode novamente o script.
 
-**Importante:** alterações feitas apenas no `$HOME` de um Codespace podem desaparecer quando o container for reconstruído. Se quiser persistência da imagem inteira, use o modo padrão `.devcontainer/`.
-
-### Outros comandos
-
-```bash
-# Prévia sem tocar em nada
-curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/install.sh | bash -s -- --dry-run
-
-# Instalar em outra pasta
-curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/install.sh | bash -s -- --target /workspaces/outro-projeto
-
-# Devcontainer + personalização do shell atual
-curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/install.sh | bash -s -- --both --force
-```
-
-Para maior controle, baixe, inspecione e execute localmente:
-
-```bash
-curl -fsSLo /tmp/rod-mobile-install.sh https://raw.githubusercontent.com/rodkisten/codespaces/main/install.sh
-less /tmp/rod-mobile-install.sh
-bash /tmp/rod-mobile-install.sh
-```
-
-## Como manter este repositório
-
-```text
-.
-├── install.sh                          # Instalador autocontido: o único arquivo acessado por curl
-├── README.md
-├── .devcontainer/
-│   ├── Dockerfile
-│   ├── devcontainer.json
-│   ├── nano/nanorc
-│   ├── scripts/doctor.sh
-│   └── zsh/
-│       ├── zshrc
-│       └── rod-mobile.zsh-theme
-└── tools/
-    ├── build-installer.sh              # Regera o install.sh
-    ├── installer.header.sh
-    └── installer.footer.sh
-```
-
-O arquivo `install.sh` **já contém uma cópia compactada e embutida** da pasta `.devcontainer/`. Isso permite que um único `curl` instale tudo sem exigir API do GitHub, branch fixada no script ou ZIP de release.
-
-Sempre que editar arquivos de `.devcontainer/`, **regenere o `install.sh`** e faça commit dos arquivos juntos:
-
-```bash
-bash tools/build-installer.sh
-git add .devcontainer install.sh tools README.md
-git commit -m 'Update mobile devcontainer'
-git push
-```
-
-O script não cria tokens nem executa login em serviços, não toca em permissões, projetos ou billing da Cloudflare/GCP, e não modifica os arquivos de código do seu projeto.
+**Organização:** `.devcontainer/` contém a imagem e seus arquivos de configuração; `config/zsh/` contém o tema e a configuração editável; `scripts/install-rod-zinit.sh` é o instalador de shell. O instalador Debian permanece em `debian/install.sh`.
 
 ## Tailscale no Codespace (sem Sync)
 
@@ -246,16 +196,7 @@ Tema Zsh de duas linhas, com **pasta violeta**, **repositório e branch ciano**,
 
 **Debian:** `debian/install.sh` instala/atualiza automaticamente o tema e adiciona uma linha de `source` ao `~/.zshrc` existente. Reabra o Zsh com `exec zsh`. O arquivo é `~/.config/zsh/rod-prompt.zsh`.
 
-**Codespaces:** o tema substitui o `rod-mobile` anterior e também é atualizado pelo `install.sh --shell --force` ou pelo instalador do devcontainer. Para instalar só o tema na VM já existente:
-
-```bash
-mkdir -p ~/.config/zsh
-curl -fsSL https://raw.githubusercontent.com/rodkisten/codespaces/main/.devcontainer/zsh/rod-mobile.zsh-theme -o ~/.config/zsh/rod-prompt.zsh
-grep -Fq 'source "$HOME/.config/zsh/rod-prompt.zsh"' ~/.zshrc || printf '\nsource "$HOME/.config/zsh/rod-prompt.zsh"\n' >> ~/.zshrc
-exec zsh
-```
-
-Variáveis opcionais antes do `source`: `ROD_PROMPT_DOTS=0` (sem separador), `ROD_PROMPT_SHOW_BRANCH=0`, `ROD_PROMPT_SHOW_REPO=0`. O comprimento da linha acompanha `COLUMNS`, inclusive após redimensionamento. Nomes de diretórios com caracteres de largura especial podem apresentar pequenas diferenças visuais em terminais distintos.
+**Codespaces:** o prompt é instalado pelo fluxo Zinit acima ou integrado à imagem em `.devcontainer/Dockerfile`. Para personalizar, edite `~/.config/zsh/rod-prompt-neon.config.zsh`.
 
 ## 🩺 Rod Zsh Doctor: recuperação de VPS
 
@@ -270,6 +211,24 @@ exec zsh
 
 Verifique erros e status com `command rod_missing_123; echo $?` (esperado: 127). O doctor não instala Zplug, Oh My Zsh ou outros plugins. **Não execute instaladores antigos do Relay enquanto houver erros de codificação.** O token deve permanecer em arquivo privado, nunca no GitHub ou no histórico.
 
+
+## 💜 Rod Prompt Neon 2 · Zinit sem Oh My Zsh
+
+O tema novo vive em `config/zsh/rod-prompt-neon.zsh` e as opções em `config/zsh/rod-prompt-neon.config.zsh`. O plugin `zsh-syntax-highlighting` é opcional: a renderização do prompt não depende dele.
+
+Instalação recomendada no Codespaces atual (preserva seu `~/.zshrc`, com backup):
+
+```bash
+git clone --depth 1 https://github.com/rodkisten/codespaces.git /tmp/rod-codespaces
+bash /tmp/rod-codespaces/scripts/install-rod-zinit.sh
+exec zsh
+```
+
+O instalador instala o Zinit, copia o tema e configura o carregamento por uma única linha gerenciada. Em instalações seguintes, mantém o arquivo de preferências existente. Para atualizar, execute `git -C /tmp/rod-codespaces pull --ff-only` e rode novamente o instalador.
+
+Edite `~/.config/zsh/rod-prompt-neon.config.zsh` para escolher `ROD_PROMPT_DIR_MODE`, `ROD_PROMPT_BRANCH_MODE`, `ROD_PROMPT_ERROR_POSITION`, `ROD_PROMPT_GIT_CACHE_TTL`, `ROD_PROMPT_GIT_SYNC_INTERVAL`, `ROD_PROMPT_GIT_FETCH`, ícones e cores. O fetch remoto é opt-in (padrão 0). Indicadores locais usam cache com TTL e podem causar uma breve consulta Git quando expiram.
+
+****Sem gerador autocontido:** a configuração é mantida diretamente nos arquivos versionados.ntes de `tools/installer.footer.sh` e `.devcontainer/` já usam Zinit + Neon, mas `install.sh` na raiz precisa ser regenerado com `bash tools/build-installer.sh` e versionado antes de usar o comando remoto. Até lá, prefira `scripts/install-rod-zinit.sh`. O modo padrão de devcontainer exige rebuild.
 
 ## 💜 Rod Zsh com Zinit (sem Oh My Zsh)
 

@@ -76,6 +76,7 @@ zle -N _rod_sudo_prefix
 bindkey '^[^[ ' _rod_sudo_prefix
 [[ -r /etc/zsh_command_not_found ]] && source /etc/zsh_command_not_found
 [[ -r "$HOME/.config/zsh/rod-notify.zsh" ]] && source "$HOME/.config/zsh/rod-notify.zsh"
+[[ -r "$HOME/.config/zsh/rod-prompt-neon.config.zsh" ]] && source "$HOME/.config/zsh/rod-prompt-neon.config.zsh"
 [[ -r "$HOME/.config/zsh/rod-prompt.zsh" ]] && source "$HOME/.config/zsh/rod-prompt.zsh"
 
 # Rod Notify interactive tmux debugger (no credentials in command arguments).
