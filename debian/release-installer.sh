@@ -13,6 +13,7 @@ ARGS=()
 for arg in "$@"; do
   case "$arg" in --check) MODE=check;; --self-update) MODE=update;; --help|-h) usage; exit 0;; *) ARGS+=("$arg");; esac
 done
+[[ "$MODE" == update ]] && VERSION=latest
 api_get() { curl -fsSL --retry 2 --connect-timeout 10 --max-time 40 -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "$1"; }
 release_url="$API/latest"
 if [[ "$VERSION" != latest ]]; then
