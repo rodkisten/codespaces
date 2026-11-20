@@ -2,6 +2,27 @@
 
 Um kit portátil de desenvolvimento para usar no **GitHub Codespaces pelo iPhone**: Dockerfile Debian, Zsh/Zinit, prompt compacto de duas linhas, Nano com soft wrap, Node, Python + uv, gcloud, Wrangler, kubectl e utilitários.
 
+## 🐧 Debian · instalador versionado e self-update
+
+O Worker em `shell.migos.club` serve um bootstrap Bash pequeno, sem arquivo ZIP embutido. O bootstrap consulta **GitHub Releases** do repositório, baixa o asset `rod-debian.zip`, valida o digest SHA-256 informado pela API do GitHub, rejeita caminhos inseguros no ZIP e executa `debian/install.sh` do pacote verificado.
+
+```bash
+curl -fsSL https://shell.migos.club/debian/installer -o /tmp/rod-install.sh
+sudo bash /tmp/rod-install.sh
+
+# Versão fixa
+curl -fsSL https://shell.migos.club/debian/installer/1.0.0 -o /tmp/rod-install.sh
+sudo bash /tmp/rod-install.sh
+
+# Após a instalação
+rod-self-update --check
+sudo rod-self-update --self-update
+```
+
+`--check` consulta a última release sem modificar o sistema. `--self-update` instala a última release estável se for diferente da versão registrada. As releases devem conter o ZIP `rod-debian.zip` com o diretório `debian/`, `config/zsh/` e os scripts necessários. O workflow `.github/workflows/debian-release.yml` publica os assets a partir de tags SemVer.
+
+O endpoint só estará disponível após o merge e deploy do PR do Worker. Não execute esses comandos antes da primeira release válida.
+
 ## Instalação simples, sem gerador autocontido
 
 O Codespaces usa diretamente os arquivos versionados em `.devcontainer/`. Para um projeto novo, clone o repositório e abra-o no GitHub Codespaces. Para usar a configuração em outro projeto, copie `.devcontainer/` para o projeto e reconstrua o container. Não existe mais `install.sh` na raiz, arquivo embutido em base64 nem etapa de regeneração.
