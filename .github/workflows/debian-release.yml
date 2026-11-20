@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          zip -q -r dist/rod-debian.zip debian config/zsh scripts/install-rod-zinit.sh
+          zip -q -r dist/rod-debian.zip debian config/zsh scripts/install-rod-zinit.sh scripts/rod-notify-debug.py
           unzip -t dist/rod-debian.zip
           sha256sum dist/rod-debian.zip > dist/SHA256SUMS
       - name: Publish release assets
