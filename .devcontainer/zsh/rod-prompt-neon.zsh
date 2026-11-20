@@ -116,8 +116,9 @@ _rod_neon_precmd() {
     root=$(command git rev-parse --show-toplevel 2>/dev/null) || root=''
     if [[ -n $root ]]; then
       branch=$(command git symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=$(command git rev-parse --short HEAD 2>/dev/null) || branch=''
+      local fullbranch=$branch
       _rod_neon_short "$branch" "$ROD_PROMPT_BRANCH_MODE" "$ROD_PROMPT_BRANCH_MAX" 1; branch=$REPLY
-      _rod_neon_git "$root" "$branch"; state=$REPLY
+      _rod_neon_git "$root" "$fullbranch"; state=$REPLY
       local -a fields; fields=("${(@s/:/)state}")
       local dot='●' dotcolor=240
       if (( fields[3] && ROD_PROMPT_GIT_UNTRACKED )); then dotcolor=203
@@ -143,7 +144,7 @@ _rod_neon_precmd() {
   local fill=$(( width-plainlen ))
   (( fill < 0 )) && fill=0
   if (( ROD_PROMPT_DOTS && fill > 0 )); then
-    dots="${(l:$fill::·:)}"
+    dots="${(l:$fill::$ROD_PROMPT_DOT_CHAR:)}"
     header+=" %F{$ROD_PROMPT_DIM_COLOR}$dots%f"
   fi
   local statusline=''
@@ -155,13 +156,13 @@ _rod_neon_precmd() {
       case $ROD_PROMPT_ERROR_POSITION in
         hidden) statusline='' ;;
         inline) header+=" %F{203}$status%f" ;;
-        left) statusline="%F{$ROD_PROMPT_DIM_COLOR}${(l:$free::·:)}%f" ; statusline="%F{203}$status%f $statusline" ;;
-        right) statusline="%F{$ROD_PROMPT_DIM_COLOR}${(l:$free::·:)}%f %F{203}$status%f" ;;
-        *) left=$((free/2)); right=$((free-left)); statusline="%F{$ROD_PROMPT_DIM_COLOR}${(l:$left::·:)}%f %F{203}$status%f %F{$ROD_PROMPT_DIM_COLOR}${(l:$right::·:)}%f" ;;
+        left) statusline="%F{$ROD_PROMPT_DIM_COLOR}${(l:$free::$ROD_PROMPT_DOT_CHAR:)}%f" ; statusline="%F{203}$status%f $statusline" ;;
+        right) statusline="%F{$ROD_PROMPT_DIM_COLOR}${(l:$free::$ROD_PROMPT_DOT_CHAR:)}%f %F{203}$status%f" ;;
+        *) left=$((free/2)); right=$((free-left)); statusline="%F{$ROD_PROMPT_DIM_COLOR}${(l:$left::$ROD_PROMPT_DOT_CHAR:)}%f %F{203}$status%f %F{$ROD_PROMPT_DIM_COLOR}${(l:$right::$ROD_PROMPT_DOT_CHAR:)}%f" ;;
       esac
     fi
   elif (( _ROD_NEON_RAN && ROD_PROMPT_SHOW_SEPARATOR && ROD_PROMPT_DOTS )); then
-    statusline="%F{$ROD_PROMPT_DIM_COLOR}${(l:$width::·:)}%f"
+    statusline="%F{$ROD_PROMPT_DIM_COLOR}${(l:$width::$ROD_PROMPT_DOT_CHAR:)}%f"
   fi
   _ROD_NEON_RAN=1
   local symbolcolor=84
