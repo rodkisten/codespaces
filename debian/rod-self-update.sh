@@ -7,4 +7,4 @@ tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 curl -fsSL --retry 2 https://shell.migos.club/debian/installer -o "$tmp"
 bash -n "$tmp"
-exec bash "$tmp" "$mode"
+bash "$tmp" "$mode"
