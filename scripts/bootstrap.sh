@@ -91,8 +91,10 @@ trap on_exit EXIT
 
 # Theme-only mode: never installs packages, plugins, services, or changes PATH.
 install_theme_only() {
-  local source_theme="$REPO_DIR/config/zsh/rod-prompt-neon.zsh"
-  local source_config="$REPO_DIR/config/zsh/rod-prompt-neon.config.zsh"
+  local theme_repo_dir
+  theme_repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+  local source_theme="$theme_repo_dir/config/zsh/rod-prompt-neon.zsh"
+  local source_config="$theme_repo_dir/config/zsh/rod-prompt-neon.config.zsh"
   local config_dir="$HOME/.config/zsh"
   local rc="$HOME/.zshrc"
   local line='[[ -r "$HOME/.config/zsh/rod-prompt.zsh" ]] && source "$HOME/.config/zsh/rod-prompt.zsh"'
