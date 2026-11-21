@@ -27,7 +27,7 @@ xi [--yes] <command>
   xi config [--autoupdate true|false] [--zsh-pkg zinit] [zinit]
   xi inventory
   xi update [--all]
-  xi git
+  xi git [run]                      Browse or execute safe Git snippets
   xi self-update
 HELP
 }
@@ -52,24 +52,91 @@ install_repo() {
  record github "$repo@$ref:$dir"
 }
 release_install() {
- local repo="$1" version="$2" pattern="$3" json url name tmp arch
+ local repo="$1" version="$2" pattern="$3" json selection name url tmp arch choice
  repo_check "$repo"; need python3
  if [[ -z "$version" ]]; then json=$(gh_json "$repo" releases/latest); else
-   version="${version#v}"; json=$(gh_json "$repo" "releases/tags/v$version" 2>/dev/null) || json=$(gh_json "$repo" "releases/tags/$version")
+   version="${version#v}"
+   json=$(gh_json "$repo" "releases/tags/v$version" 2>/dev/null) || json=$(gh_json "$repo" "releases/tags/$version")
  fi
- arch=$(uname -m); [[ "$arch" == x86_64 ]] && arch=amd64
- local selection
- selection=$(printf '%s' "$json" | python3 -c 'import json,sys,re,os; d=json.load(sys.stdin); a=d.get("assets",[]); pat=os.environ.get("XI_ASSET",""); arch=os.environ.get("XI_ARCH",""); xs=[x for x in a if (not pat or re.search(pat,x["name"],re.I)) and (arch in x["name"].lower() or "universal" in x["name"].lower()) and x["name"].endswith((".deb",".tar.gz",".tgz",".zip"))]; print(xs[0]["browser_download_url"] if len(xs)==1 else "")' ) || :
- [[ -n "$selection" ]] || { say 'No unique compatible asset. Specify --asset REGEX'; return 1; }
- name="${selection##*/}"; tmp=$(mktemp -d); trap 'rm -rf "$tmp"' RETURN
- say "Asset: $name"; confirm 'Download and install this release?' || return 1
- fetch -o "$tmp/$name" "$selection"
+ arch=$(uname -m)
+ selection=$(XI_ASSET="$pattern" XI_ARCH="$arch" python3 -c '
+import json,sys,re,os
+data=json.load(sys.stdin); arch=os.environ["XI_ARCH"].lower()
+aliases={"x86_64":("x86_64","amd64","x64"),"aarch64":("aarch64","arm64")}.get(arch,(arch,))
+pattern=os.environ["XI_ASSET"]
+for asset in data.get("assets",[]):
+ name=asset["name"]; low=name.lower()
+ if pattern and not re.search(pattern,name,re.I): continue
+ if not low.endswith((".deb",".tar.gz",".tgz",".zip")): continue
+ if not any(a in low for a in aliases) and not any(a in low for a in ("universal","all.","noarch")): continue
+ print(name+"\\t"+asset["browser_download_url"])
+' <<< "$json")
+ [[ -n "$selection" ]] || fail 'No compatible release asset. Try --asset REGEX'
+ if [[ $(printf '%s\n' "$selection" | wc -l) -gt 1 ]]; then
+   if command -v gum >/dev/null && [[ -t 0 ]]; then
+     choice=$(printf '%s\n' "$selection" | cut -f1 | gum choose --header 'Select release asset')
+   elif [[ -t 0 ]]; then
+     select choice in $(printf '%s\n' "$selection" | cut -f1); do [[ -n "$choice" ]] && break; done
+   else fail 'Multiple assets match. Use --asset REGEX to select one'; fi
+   selection=$(printf '%s\n' "$selection" | awk -F '\t' -v n="$choice" '$1==n {print;exit}')
+ fi
+ name=${selection%%$'\t'*}; url=${selection#*$'\t'}
+ tmp=$(mktemp -d)
+ say "Selected: $repo | $name"
+ confirm 'Download this release asset?' || { rm -rf "$tmp"; return 1; }
+ fetch -o "$tmp/$name" "$url"
  case "$name" in
-   *.deb) need dpkg; sudo dpkg -i "$tmp/$name" ;;
-   *.tar.gz|*.tgz|*.zip) say "Downloaded to $tmp/$name; archive installation requires a manifest. No arbitrary binaries executed."; return 1 ;;
+  *.deb)
+    need dpkg
+    confirm "Install Debian package $name with sudo?" || { rm -rf "$tmp"; return 1; }
+    sudo dpkg -i "$tmp/$name" ;;
+  *.tar.gz|*.tgz|*.zip)
+    need python3
+    mkdir -p "$XI_HOME/downloads/$repo"
+    # Validate archive paths and reject links before extracting.
+    python3 - "$tmp/$name" "$XI_HOME/downloads/$repo" <<'PY'
+import pathlib,sys,tarfile,zipfile
+src=pathlib.Path(sys.argv[1]); dest=pathlib.Path(sys.argv[2]).resolve()
+def safe(name):
+ p=pathlib.PurePosixPath(name)
+ if p.is_absolute() or ".." in p.parts or not name or "\\\\" in name:
+  raise ValueError("Unsafe archive member: "+name)
+ return p
+if src.name.endswith(".zip"):
+ with zipfile.ZipFile(src) as z:
+  for i in z.infolist():
+   safe(i.filename)
+   if (i.external_attr >> 16) & 0o170000 == 0o120000: raise ValueError("Symlinks prohibited")
+  z.extractall(dest)
+else:
+ with tarfile.open(src,"r:gz") as t:
+  for m in t.getmembers():
+   safe(m.name)
+   if not (m.isfile() or m.isdir()): raise ValueError("Links and special files prohibited")
+  t.extractall(dest,filter="data")
+print("Archive extracted to",dest)
+PY
+    say 'Archive extracted only. Review files before installing binaries.' ;;
  esac
  record release "$repo@$version:$name"
+ rm -rf "$tmp"
 }
+git_snippets() {
+ local entries selected
+ entries=$'status — git status -sb\nlog — git log --oneline -10\nbranches — git branch -vv\nfetch — git fetch --prune\ndiff — git diff --stat\nremotes — git remote -v'
+ if [[ "${1:-}" == run ]]; then
+   [[ -t 0 ]] || fail 'Interactive terminal required'
+   if command -v gum >/dev/null; then selected=$(printf '%s\n' "$entries" | gum choose --header 'Git snippets')
+   else printf '%s\n' "$entries"; read -r -p 'Enter snippet name: ' selected; fi
+   case "${selected%% *}" in
+     status) git status -sb;; log) git log --oneline -10;; branches) git branch -vv;;
+     fetch) confirm 'Fetch remote refs?' && git fetch --prune;;
+     diff) git diff --stat;; remotes) git remote -v;;
+     *) fail 'Unknown snippet';;
+   esac
+ else printf '%s\n' "$entries"; fi
+}
+
 main() {
  local action="${1:-help}" repo='' dir='' cmd=bash releases=0 version='' asset=''
  if [[ "$action" == --yes ]]; then XI_YES=1; shift; action="${1:-help}"; fi
@@ -103,7 +170,7 @@ main() {
   inventory) if [[ -f "$XI_STATE/inventory.tsv" ]]; then if command -v column >/dev/null; then column -ts $'\t' "$XI_STATE/inventory.tsv"; else cat "$XI_STATE/inventory.tsv"; fi; else say 'No managed installations'; fi ;;
   update) [[ "${1:-}" == --all ]] || fail 'Use xi update --all'; say 'Managed update checks: manual review required for GitHub scripts and release assets.'; [[ "$(config_get XI_AUTOUPDATE)" == true ]] && say 'Auto-update enabled for future verified providers; no blind execution.'; ;;
   self-update) local url="https://raw.githubusercontent.com/rodkisten/codespaces/main/scripts/xi.sh" tmp; tmp=$(mktemp); fetch -o "$tmp" "$url"; bash -n "$tmp"; confirm 'Replace local xi with verified Bash script?' && install -m 755 "$tmp" "$XI_BIN/xi"; rm -f "$tmp" ;;
-  git) if command -v gum >/dev/null && [[ -t 0 ]]; then gum choose 'git status -sb' 'git log --oneline -10' 'git branch -vv' 'git fetch --prune' 'git diff --stat'; else printf '%s\n' 'git status -sb' 'git log --oneline -10' 'git branch -vv' 'git fetch --prune' 'git diff --stat'; fi ;;
+  git) git_snippets "${1:-}" ;;
   */*) install_repo "$action" '' bash '' ;;
   *) fail "Unknown command: $action";;
  esac
