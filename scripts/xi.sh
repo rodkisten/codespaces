@@ -197,6 +197,34 @@ inventory_view() {
   *) fail "Unknown command: $action";;
  esac
 }
+main() {
+ local action="${1:-help}" repo="" dir="" cmd=bash releases=0 version="" asset=""
+ if [[ "$action" == --yes ]]; then XI_YES=1; shift; action="${1:-help}"; fi
+ [[ $# -gt 0 ]] && shift || :
+ case "$action" in
+  help|-h|--help) usage ;;
+  menu) xi_menu ;;
+  doctor) xi_path_doctor; say "PATH ready: $XI_BIN" ;;
+  github)
+    while (($#)); do case "$1" in --releases) releases=1;; --dir) dir="${2:?}"; shift;; --cmd) cmd="${2:?}"; shift;; *) repo="$1";; esac; shift; done
+    [[ -n "$repo" ]] || fail "Missing repository"
+    if ((releases)); then local tag; tag=$(gh_json "$repo" releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])'); install_repo "$repo" "$dir" "$cmd" "$tag"; else install_repo "$repo" "$dir" "$cmd" ""; fi ;;
+  releases)
+    repo="${1:?Missing repository}"; shift
+    while (($#)); do case "$1" in -v|--version) version="${2:?}"; shift;; --asset) asset="${2:?}"; shift;; *) fail "Unknown option: $1";; esac; shift; done
+    release_install "$repo" "$version" "$asset" ;;
+  zinit) xi_zinit "${1:?Missing plugin}" ;;
+  zshrc) [[ "${1:-}" == add && $# -eq 2 ]] || fail 'Usage: xi zshrc add "line"'; touch "$HOME/.zshrc"; grep -Fxq -- "$2" "$HOME/.zshrc" || printf "\n%s\n" "$2" >> "$HOME/.zshrc" ;;
+  config)
+    case "${1:-}" in --autoupdate) [[ "${2:-}" == true || "${2:-}" == false ]] || fail "Use true or false"; config_set XI_AUTOUPDATE "$2";; --zsh-pkg) [[ "${2:-}" == zinit ]] || fail "Only zinit supported"; config_set XI_ZSH_PKG "$2";; zinit) say "Zinit config: $XI_HOME/zinit-plugins.zsh";; "") cat "$CONFIG";; *) fail "Unknown config option";; esac ;;
+  inventory) xi_inventory ;;
+  update) [[ "${1:-}" == --all ]] || fail "Use xi update --all"; xi_updates ;;
+  self-update) local tmp; tmp=$(mktemp); fetch -o "$tmp" https://raw.githubusercontent.com/rodkisten/codespaces/main/scripts/xi.sh; bash -n "$tmp"; confirm "Replace xi?" && install -m 755 "$tmp" "$XI_BIN/xi"; rm -f "$tmp" ;;
+  git) git_snippets "${1:-}" ;;
+  */*) install_repo "$action" "" bash "" ;;
+  *) fail "Unknown command: $action";;
+ esac
+}
 xi_path_doctor
 if [[ $# -eq 0 ]]; then xi_menu; else main "$@"; fi
 \t'
