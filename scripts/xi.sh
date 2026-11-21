@@ -28,6 +28,7 @@ xi [--yes] <command>
   xi inventory
   xi update [--all]
   xi git [run]                      Browse or execute safe Git snippets
+  xi gh [menu|checks|runs|watch|dispatch] [OWNER/REPO] [ARG]
   xi menu
   xi doctor
   xi self-update
@@ -197,82 +198,7 @@ inventory_view() {
   *) fail "Unknown command: $action";;
  esac
 }
-main() {
- local action="${1:-help}" repo="" dir="" cmd=bash releases=0 version="" asset=""
- if [[ "$action" == --yes ]]; then XI_YES=1; shift; action="${1:-help}"; fi
- [[ $# -gt 0 ]] && shift || :
- case "$action" in
-  help|-h|--help) usage ;;
-  menu) xi_menu ;;
-  doctor) xi_path_doctor; say "PATH ready: $XI_BIN" ;;
-  github)
-    while (($#)); do case "$1" in --releases) releases=1;; --dir) dir="${2:?}"; shift;; --cmd) cmd="${2:?}"; shift;; *) repo="$1";; esac; shift; done
-    [[ -n "$repo" ]] || fail "Missing repository"
-    if ((releases)); then local tag; tag=$(gh_json "$repo" releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])'); install_repo "$repo" "$dir" "$cmd" "$tag"; else install_repo "$repo" "$dir" "$cmd" ""; fi ;;
-  releases)
-    repo="${1:?Missing repository}"; shift
-    while (($#)); do case "$1" in -v|--version) version="${2:?}"; shift;; --asset) asset="${2:?}"; shift;; *) fail "Unknown option: $1";; esac; shift; done
-    release_install "$repo" "$version" "$asset" ;;
-  zinit) xi_zinit "${1:?Missing plugin}" ;;
-  zshrc) [[ "${1:-}" == add && $# -eq 2 ]] || fail 'Usage: xi zshrc add "line"'; touch "$HOME/.zshrc"; grep -Fxq -- "$2" "$HOME/.zshrc" || printf "\n%s\n" "$2" >> "$HOME/.zshrc" ;;
-  config)
-    case "${1:-}" in --autoupdate) [[ "${2:-}" == true || "${2:-}" == false ]] || fail "Use true or false"; config_set XI_AUTOUPDATE "$2";; --zsh-pkg) [[ "${2:-}" == zinit ]] || fail "Only zinit supported"; config_set XI_ZSH_PKG "$2";; zinit) say "Zinit config: $XI_HOME/zinit-plugins.zsh";; "") cat "$CONFIG";; *) fail "Unknown config option";; esac ;;
-  inventory) xi_inventory ;;
-  update) [[ "${1:-}" == --all ]] || fail "Use xi update --all"; xi_updates ;;
-  self-update) local tmp; tmp=$(mktemp); fetch -o "$tmp" https://raw.githubusercontent.com/rodkisten/codespaces/main/scripts/xi.sh; bash -n "$tmp"; confirm "Replace xi?" && install -m 755 "$tmp" "$XI_BIN/xi"; rm -f "$tmp" ;;
-  git) git_snippets "${1:-}" ;;
-  */*) install_repo "$action" "" bash "" ;;
-  *) fail "Unknown command: $action";;
- esac
-}
-xi_path_doctor
-if [[ $# -eq 0 ]]; then xi_menu; else main "$@"; fi
-\t'
- else cat "$file"; fi
-}
-update_all() {
- local file="$XI_STATE/inventory.tsv" provider item date repo installed latest
- [[ -s "$file" ]] || { say 'No managed installations'; return; }
- need python3
- say 'Checking tracked releases. No unattended installation.'
- while IFS=
- local action="${1:-help}" repo='' dir='' cmd=bash releases=0 version='' asset=''
- if [[ "$action" == --yes ]]; then XI_YES=1; shift; action="${1:-help}"; fi
- [[ $# -gt 0 ]] && shift || :
- case "$action" in
-  help|-h|--help) usage ;;
-  github)
-    while (($#)); do case "$1" in --releases) releases=1;; --dir) dir="${2:?}"; shift;; --cmd) cmd="${2:?}"; shift;; *) repo="$1";; esac; shift; done
-    [[ -n "$repo" ]] || fail 'Missing repository'
-    if ((releases)); then
-      need python3
-      local tag; tag=$(gh_json "$repo" releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])')
-      install_repo "$repo" "$dir" "$cmd" "$tag"
-    else install_repo "$repo" "$dir" "$cmd" ''; fi ;;
-  releases)
-    repo="${1:?Missing repository}"; shift
-    while (($#)); do case "$1" in -v|--version) version="${2:?}"; shift;; --asset) asset="${2:?}"; shift;; *) fail "Unknown option: $1";; esac; shift; done
-    XI_ASSET="$asset" XI_ARCH="$(uname -m | sed s/x86_64/amd64/)" release_install "$repo" "$version" "$asset" ;;
-  zinit) xi_zinit "${1:?Missing plugin}" ;;
-  zshrc)
-    [[ "${1:-}" == add && $# -eq 2 ]] || fail 'Usage: xi zshrc add "line"'
-    touch "$HOME/.zshrc"; grep -Fxq -- "$2" "$HOME/.zshrc" || printf '\n%s\n' "$2" >> "$HOME/.zshrc"; say 'zshrc updated (idempotent)' ;;
-  config)
-    case "${1:-}" in
-      --autoupdate) [[ "${2:-}" == true || "${2:-}" == false ]] || fail 'Use true or false'; config_set XI_AUTOUPDATE "$2";;
-      --zsh-pkg) [[ "${2:-}" == zinit ]] || fail 'Only zinit supported'; config_set XI_ZSH_PKG "$2";;
-      zinit) say 'Zinit settings: ~/.config/zsh and ~/.zshrc';;
-      '') cat "$CONFIG";;
-      *) fail 'Unknown config option';;
-    esac ;;
-  inventory) xi_inventory ;;
-  update) [[ "${1:-}" == --all ]] || fail "Use xi update --all"; xi_updates ;;
-  self-update) local url="https://raw.githubusercontent.com/rodkisten/codespaces/main/scripts/xi.sh" tmp; tmp=$(mktemp); fetch -o "$tmp" "$url"; bash -n "$tmp"; confirm 'Replace local xi with verified Bash script?' && install -m 755 "$tmp" "$XI_BIN/xi"; rm -f "$tmp" ;;
-  git) git_snippets "${1:-}" ;;
-  */*) install_repo "$action" '' bash '' ;;
-  *) fail "Unknown command: $action";;
- esac
-}
+
 xi_path_doctor() {
   local line='export PATH="$HOME/.local/bin:$PATH"'
   case ":$PATH:" in *":$XI_BIN:"*) ;; *) export PATH="$XI_BIN:$PATH";; esac
@@ -301,8 +227,9 @@ xi_menu() {
     if command -v gum >/dev/null && [[ -t 1 ]]; then
       gum style --border rounded --padding "1 3" "⚡ xi · Universal Installer" "GitHub · Releases · Zinit · Updates"
     else printf "\n╭── xi · Universal Installer ──╮\n╰──────────────────────────────╯\n"; fi
-    choice=$(xi_choice "GitHub installer" "GitHub releases" "Zinit plugin" "Inventory" "Check updates" "Git snippets" "Settings" "PATH doctor" "Exit") || return
+    choice=$(xi_choice "GitHub Actions" "GitHub installer" "GitHub releases" "Zinit plugin" "Inventory" "Check updates" "Git snippets" "Settings" "PATH doctor" "Exit") || return
     case "$choice" in
+      "GitHub Actions") xi_gh_menu ;;
       "GitHub installer") read -r -p "OWNER/REPO: " repo; [[ -z "$repo" ]] || install_repo "$repo" "" bash "" ;;
       "GitHub releases") read -r -p "OWNER/REPO: " repo; [[ -z "$repo" ]] && continue; read -r -p "Version (blank for latest): " version; release_install "$repo" "$version" "" ;;
       "Zinit plugin") read -r -p "OWNER/PLUGIN: " repo; [[ -z "$repo" ]] || xi_zinit "$repo" ;;
@@ -381,6 +308,97 @@ xi_settings() {
     "Disable update checks") config_set XI_AUTOUPDATE false ;;
     "Show config") cat "$CONFIG" ;;
   esac
+}
+xi_gh_repo() {
+  local repo="${1:-}"
+  if [[ -z "$repo" ]]; then repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || fail "Provide OWNER/REPO outside a Git checkout"; fi
+  repo_check "$repo"; printf "%s\n" "$repo"
+}
+xi_gh_checks() {
+  need gh; local repo sha
+  repo=$(xi_gh_repo "${1:-}")
+  sha="${2:-}"
+  if [[ -z "$sha" ]]; then sha=$(gh api "repos/$repo/commits/HEAD" --jq .sha) || return; fi
+  say "Commit $sha"
+  gh api "repos/$repo/commits/$sha/check-runs" --jq '.check_runs[] | [.name,.status,.conclusion,.html_url] | @tsv' || return
+  say "Recent workflow runs:"
+  gh run list -R "$repo" --limit 10
+}
+xi_gh_runs() {
+  need gh; local repo; repo=$(xi_gh_repo "${1:-}")
+  gh run list -R "$repo" --limit 20
+}
+xi_gh_watch() {
+  need gh; local repo runid
+  repo=$(xi_gh_repo "${1:-}")
+  runid="${2:-}"
+  if [[ -z "$runid" ]]; then
+    runid=$(gh run list -R "$repo" --limit 10 --json databaseId,displayTitle,status --jq '.[] | [.databaseId,.status,.displayTitle] | @tsv' | { if command -v gum >/dev/null && [[ -t 0 ]]; then gum filter --placeholder "Select run"; else head -n 1; fi; }) || return
+    runid="${runid%%$'\t'*}"
+  fi
+  [[ "$runid" =~ ^[0-9]+$ ]] || fail "Invalid run ID"
+  gh run watch "$runid" -R "$repo" --exit-status
+}
+xi_gh_dispatch() {
+  need gh; local repo workflow ref
+  repo=$(xi_gh_repo "${1:-}")
+  workflow="${2:-}"
+  if [[ -z "$workflow" ]]; then
+    workflow=$(gh workflow list -R "$repo" --json name,path --jq '.[] | [.name,.path] | @tsv' | { if command -v gum >/dev/null && [[ -t 0 ]]; then gum filter --placeholder "Choose workflow"; else cat; fi; }) || return
+    workflow="${workflow#*$'\t'}"
+  fi
+  [[ -n "$workflow" ]] || fail "Missing workflow"
+  ref="${3:-main}"
+  confirm "Trigger $workflow on $repo at $ref?" || return 1
+  gh workflow run "$workflow" -R "$repo" --ref "$ref"
+  say "Dispatched. Use xi gh runs $repo to find the run."
+}
+xi_gh_menu() {
+  need gh; local choice repo
+  repo=$(xi_gh_repo "${1:-}")
+  while true; do
+    choice=$(xi_choice "Commit checks" "Workflow runs" "Watch a run" "Trigger workflow" "Back") || return
+    case "$choice" in
+      "Commit checks") xi_gh_checks "$repo" ;;
+      "Workflow runs") xi_gh_runs "$repo" ;;
+      "Watch a run") xi_gh_watch "$repo" ;;
+      "Trigger workflow") xi_gh_dispatch "$repo" ;;
+      Back) return ;;
+    esac
+  done
+}
+xi_gh() {
+  local action="${1:-menu}"; [[ $# -eq 0 ]] || shift
+  case "$action" in
+    menu) xi_gh_menu "${1:-}" ;;
+    checks) xi_gh_checks "${1:-}" "${2:-}" ;;
+    runs) xi_gh_runs "${1:-}" ;;
+    watch) xi_gh_watch "${1:-}" "${2:-}" ;;
+    dispatch) xi_gh_dispatch "${1:-}" "${2:-}" "${3:-}" ;;
+    *) fail "Usage: xi gh [menu|checks|runs|watch|dispatch] [OWNER/REPO] [ARG]" ;;
+  esac
+}
+main() {
+ local action="${1:-help}" repo="" dir="" cmd=bash releases=0 version="" asset=""
+ if [[ "$action" == --yes ]]; then XI_YES=1; shift; action="${1:-help}"; fi
+ [[ $# -eq 0 ]] || shift
+ case "$action" in
+ help|-h|--help) usage ;;
+ menu) xi_menu ;;
+ doctor) xi_path_doctor ;;
+ gh) xi_gh "$@" ;;
+ github) while (($#)); do case "$1" in --releases) releases=1;; --dir) dir="$2"; shift;; --cmd) cmd="$2"; shift;; *) repo="$1";; esac; shift; done; [[ -n "$repo" ]] || fail "Missing repo"; if ((releases)); then local tag; tag=$(gh_json "$repo" releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])'); install_repo "$repo" "$dir" "$cmd" "$tag"; else install_repo "$repo" "$dir" "$cmd" ""; fi ;;
+ releases) repo="${1:?Missing repository}"; shift; while (($#)); do case "$1" in -v|--version) version="$2"; shift;; --asset) asset="$2"; shift;; *) fail "Unknown option: $1";; esac; shift; done; release_install "$repo" "$version" "$asset" ;;
+ zinit) xi_zinit "${1:?Missing plugin}" ;;
+ zshrc) [[ "${1:-}" == add && $# -eq 2 ]] || fail "Usage: xi zshrc add LINE"; touch "$HOME/.zshrc"; grep -Fxq -- "$2" "$HOME/.zshrc" || printf "\n%s\n" "$2" >> "$HOME/.zshrc" ;;
+ config) case "${1:-}" in --autoupdate) config_set XI_AUTOUPDATE "${2:?}";; --zsh-pkg) config_set XI_ZSH_PKG "${2:?}";; "") cat "$CONFIG";; *) fail "Unknown config option";; esac ;;
+ inventory) xi_inventory ;;
+ update) [[ "${1:-}" == --all ]] || fail "Use xi update --all"; xi_updates ;;
+ self-update) local tmp; tmp=$(mktemp); fetch -o "$tmp" https://raw.githubusercontent.com/rodkisten/codespaces/main/scripts/xi.sh; bash -n "$tmp" && confirm "Update xi?" && install -m 755 "$tmp" "$XI_BIN/xi"; rm -f "$tmp" ;;
+ git) git_snippets "${1:-}" ;;
+ */*) install_repo "$action" "" bash "" ;;
+ *) fail "Unknown command: $action" ;;
+ esac
 }
 xi_path_doctor
 if [[ $# -eq 0 ]]; then xi_menu; else main "$@"; fi
