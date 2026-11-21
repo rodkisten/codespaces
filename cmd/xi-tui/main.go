@@ -2,6 +2,9 @@ package main
 
 import (
  "encoding/json"
+ "crypto/sha256"
+ "path/filepath"
+ "time"
  "fmt"
  "os"
  "os/exec"
@@ -18,8 +21,9 @@ type run struct {
  Status string `json:"status"`
  Conclusion string `json:"conclusion"`
 }
-type loaded struct { runs []run; err error }
-type detail struct { value string; err error }
+type loaded struct { runs []run; err error; cached bool; stale bool; request int }
+type tickMsg struct{}
+type detail struct { value string; err error; cached bool; request int; target int64; logs bool }
 type model struct {
  repo string
  runs []run
@@ -30,52 +34,106 @@ type model struct {
  detail string
  width int
  height int
+ frame int
+ request int
+ refreshing bool
+ fromCache bool
+ updated time.Time
+ detailCache bool
+ detailID int64
+ detailLogs bool
+ scroll int
 }
+type cacheEntry struct { Saved time.Time `json:"saved"`; Payload json.RawMessage `json:"payload"` }
+func cachePath(key string) string {
+ base,err:=os.UserCacheDir();if err!=nil {base=os.TempDir()}
+ sum:=sha256.Sum256([]byte(key))
+ return filepath.Join(base,"xi","github",fmt.Sprintf("%x.json",sum[:12]))
+}
+func readCache(key string, dest any, ttl time.Duration)(bool,bool) {
+ b,err:=os.ReadFile(cachePath(key));if err!=nil{return false,false}
+ var entry cacheEntry
+ if json.Unmarshal(b,&entry)!=nil||entry.Saved.IsZero()||json.Unmarshal(entry.Payload,dest)!=nil{return false,false}
+ return true,time.Since(entry.Saved)>ttl
+}
+func writeCache(key string, value any) {
+ payload,err:=json.Marshal(value);if err!=nil{return}
+ b,err:=json.Marshal(cacheEntry{Saved:time.Now(),Payload:payload});if err!=nil{return}
+ path:=cachePath(key);if os.MkdirAll(filepath.Dir(path),0700)!=nil{return}
+ tmp,err:=os.CreateTemp(filepath.Dir(path),".xi-*.tmp");if err!=nil{return}
+ defer os.Remove(tmp.Name())
+ if tmp.Chmod(0600)!=nil||func()bool{_,e:=tmp.Write(b);return e!=nil}(){tmp.Close();return}
+ if tmp.Close()!=nil{return};_ = os.Rename(tmp.Name(),path)
+}
+func spinner() tea.Cmd {return tea.Tick(110*time.Millisecond,func(time.Time)tea.Msg{return tickMsg{}})}
+func cachedRuns(repo string) ([]run,bool,bool) {
+ var runs []run;ok,stale:=readCache("runs:"+repo,&runs,45*time.Second);return runs,ok,stale
+}
+func cachedDetail(repo string,id int64,logs bool)(string,bool,bool) {
+ var value string;key:=fmt.Sprintf("detail:%s:%d:%t",repo,id,logs)
+ ttl:=2*time.Minute;if logs {ttl=10*time.Minute}
+ ok,stale:=readCache(key,&value,ttl);return value,ok,stale
+}
+func fetchRuns(repo string,request int)tea.Cmd{return func()tea.Msg{
+ out,err:=gh("run","list","-R",repo,"--limit","30","--json","databaseId,workflowName,headBranch,status,conclusion")
+ if err!=nil{return loaded{err:err,request:request}}
+ var runs []run;if err=json.Unmarshal([]byte(out),&runs);err!=nil{return loaded{err:err,request:request}}
+ writeCache("runs:"+repo,runs)
+ return loaded{runs:runs,request:request}
+}}
+func fetchDetail(repo string,id int64,logs bool,request int)tea.Cmd{return func()tea.Msg{
+ args:=[]string{"run","view",fmt.Sprint(id),"-R",repo};if logs {args=append(args,"--log-failed")}
+ out,err:=gh(args...);if err!=nil{return detail{err:err,request:request,target:id,logs:logs}}
+ writeCache(fmt.Sprintf("detail:%s:%d:%t",repo,id,logs),out)
+ return detail{value:out,request:request,target:id,logs:logs}
+}}
 func gh(args ...string) (string,error) {
  cmd:=exec.Command("gh",args...)
  out,err:=cmd.CombinedOutput()
  if err!=nil {return "",fmt.Errorf("%s: %s",err,strings.TrimSpace(string(out)))}
  return string(out),nil
 }
-func load(repo string) tea.Cmd {return func() tea.Msg {
- out,err:=gh("run","list","-R",repo,"--limit","30","--json","databaseId,workflowName,headBranch,status,conclusion")
- if err!=nil{return loaded{err:err}}
- var runs []run
- err=json.Unmarshal([]byte(out),&runs)
- return loaded{runs:runs,err:err}
-}}
-func getDetail(repo string,id int64) tea.Cmd {return func() tea.Msg {
- out,err:=gh("run","view",fmt.Sprint(id),"-R",repo)
- return detail{out,err}
-}}
-func initial(repo string) model {return model{repo:repo,busy:true,width:80,height:24}}
-func (m model) Init() tea.Cmd {return load(m.repo)}
+func initial(repo string) model {
+ m:=model{repo:repo,width:80,height:24,request:1}
+ if runs,ok,_:=cachedRuns(repo);ok {m.runs=runs;m.fromCache=true;m.refreshing=true} else {m.busy=true}
+ return m
+}
+func (m model) Init() tea.Cmd {return tea.Batch(fetchRuns(m.repo,m.request),spinner())}
+func (m model) openDetail(logs bool)(tea.Model,tea.Cmd) {
+ if len(m.runs)==0{return m,nil}
+ id:=m.runs[m.selected].ID
+ m.page=1;m.detailID=id;m.detailLogs=logs;m.scroll=0;m.request++
+ if value,ok,_:=cachedDetail(m.repo,id,logs);ok {m.detail=value;m.detailCache=true;m.busy=false;m.refreshing=true} else {m.detail="";m.detailCache=false;m.busy=true;m.refreshing=false}
+ return m,fetchDetail(m.repo,id,logs,m.request)
+}
 func (m model) Update(msg tea.Msg)(tea.Model,tea.Cmd) {
  switch v:=msg.(type) {
  case tea.WindowSizeMsg: m.width=v.Width;m.height=v.Height
+ case tickMsg:
+  m.frame++;return m,spinner()
  case loaded:
-  m.busy=false
-  if v.err!=nil {m.message=v.err.Error()} else {m.runs=v.runs;m.message="";if m.selected>=len(m.runs){m.selected=0}}
+  if v.request!=m.request||m.page!=0 {break}
+  m.busy=false;m.refreshing=false
+  if v.err!=nil {m.message=v.err.Error()} else {m.runs=v.runs;m.fromCache=false;m.updated=time.Now();m.message="";if m.selected>=len(m.runs){m.selected=0}}
  case detail:
-  m.busy=false
-  if v.err!=nil {m.message=v.err.Error()} else {m.detail=v.value;m.page=1}
+  if v.request!=m.request||m.page!=1||v.target!=m.detailID||v.logs!=m.detailLogs {break}
+  m.busy=false;m.refreshing=false
+  if v.err!=nil {m.message=v.err.Error()} else {m.detail=v.value;m.detailCache=false;m.message="";m.updated=time.Now()}
  case tea.KeyPressMsg:
   switch v.String() {
-  case "ctrl+c":return m,tea.Quit
+  case "ctrl+c","q":return m,tea.Quit
   case "esc","backspace","left":
-   if m.page!=0 {m.page=0;m.detail="";m.message=""} else {return m,tea.Quit}
-  case "q":return m,tea.Quit
-  case "r":m.busy=true;return m,load(m.repo)
-  case "up","k":if m.page==0&&m.selected>0 {m.selected--}
-  case "down","j":if m.page==0&&m.selected<len(m.runs)-1 {m.selected++}
-  case "enter","right":
-   if m.page==0&&len(m.runs)>0 {m.busy=true;return m,getDetail(m.repo,m.runs[m.selected].ID)}
-  case "l":
-   if m.page==1&&len(m.runs)>0 {
-    m.page=2;m.busy=true
-    id:=m.runs[m.selected].ID
-    return m,func()tea.Msg {out,err:=gh("run","view",fmt.Sprint(id),"-R",m.repo,"--log-failed");return detail{out,err}}
-   }
+   if m.page!=0 {m.page=0;m.scroll=0;m.request++;m.busy=false;m.refreshing=false;m.message=""} else {return m,tea.Quit}
+  case "r":
+   m.request++;m.message="";m.refreshing=true
+   if m.page==0{return m,fetchRuns(m.repo,m.request)}
+   return m,fetchDetail(m.repo,m.detailID,m.detailLogs,m.request)
+  case "up","k":
+   if m.page==0&&m.selected>0 {m.selected--} else if m.page==1&&m.scroll>0 {m.scroll--}
+  case "down","j":
+   if m.page==0&&m.selected<len(m.runs)-1 {m.selected++} else if m.page==1 {m.scroll++}
+  case "enter","right":if m.page==0 {return m.openDetail(false)}
+  case "l":if m.page==1 {return m.openDetail(true)}
   }
  }
  return m,nil
@@ -89,7 +147,7 @@ func (m model) View() tea.View {
  var body strings.Builder
  body.WriteString(purple.Render("⚡ xi  /  GitHub Actions")+"\n")
  body.WriteString(muted.Render(m.repo)+"\n\n")
- if m.busy {body.WriteString("◌ Loading GitHub data…\n")}
+ if m.busy||m.refreshing {frames:=[]string{"◐","◓","◑","◒"};state:="Loading";if m.refreshing {state="Refreshing"};body.WriteString(purple.Render(frames[m.frame%len(frames)]+" "+state+" GitHub data…")+"\n")} else if m.fromCache||m.detailCache {body.WriteString(muted.Render("⚡ Cached snapshot · R refresh")+"\n")}
  if m.message!="" {body.WriteString("⚠ "+m.message+"\n")}
  if m.page==0 {
   body.WriteString(purple.Render("WORKFLOW RUNS")+"\n")
@@ -108,7 +166,9 @@ func (m model) View() tea.View {
   if len(m.runs)>0 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d -R %s",m.runs[m.selected].ID,m.repo))+"\n\n")}
   lines:=strings.Split(m.detail,"\n")
   max:=m.height-13;if max<3 {max=3}
-  if len(lines)>max {lines=lines[:max];lines=append(lines,"… output truncated")}
+  if m.scroll>=len(lines) {m.scroll=len(lines)-1};if m.scroll<0 {m.scroll=0}
+  if m.scroll<len(lines) {lines=lines[m.scroll:]}
+  if len(lines)>max {lines=lines[:max];lines=append(lines,"↓ scroll for more")}
   for _,line:=range lines {body.WriteString(line+"\n")}
  }
  body.WriteString("\n"+muted.Render("← Esc Back   ↑↓ Navigate   Enter Details   L Failed logs   R Refresh   Q Quit"))
