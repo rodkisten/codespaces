@@ -30,19 +30,19 @@ type jobResponse struct { jobs []job; err error; request int; id int64 }
 type logChunk struct { text string; done bool; err error; request int; id int64 }
 type logReady struct { chunks <-chan logChunk; request int }
 func waitChunk(ch <-chan logChunk) tea.Cmd {return func()tea.Msg {v,ok:=<-ch;if !ok{return logChunk{done:true}};return v}}
-func streamJobLogs(repo string,jobID int64,runID int64,request int)tea.Cmd {return func()tea.Msg {
+func streamJobLogs(ctx context.Context,repo string,jobID int64,runID int64,request int)tea.Cmd {return func()tea.Msg {
  ch:=make(chan logChunk,32)
  go func(){
   defer close(ch)
-  ctx,cancel:=context.WithTimeout(context.Background(),90*time.Second);defer cancel()
+  ctx,cancel:=context.WithTimeout(ctx,90*time.Second);defer cancel()
   cmd:=exec.CommandContext(ctx,"gh","run","view",fmt.Sprint(runID),"-R",repo,"--job",fmt.Sprint(jobID),"--log")
   pipe,err:=cmd.StdoutPipe();if err!=nil {ch<-logChunk{err:err,done:true,request:request,id:jobID};return}
   cmd.Stderr=cmd.Stdout
   if err=cmd.Start();err!=nil {ch<-logChunk{err:err,done:true,request:request,id:jobID};return}
   buf:=make([]byte,8192)
-  for {n,e:=pipe.Read(buf);if n>0 {ch<-logChunk{text:string(buf[:n]),request:request,id:jobID}};if e!=nil {break}}
+  for {n,e:=pipe.Read(buf);if n>0 {select {case ch<-logChunk{text:string(buf[:n]),request:request,id:jobID}:case <-ctx.Done():_ = cmd.Wait();return}};if e!=nil {break}}
   err=cmd.Wait();if ctx.Err()!=nil {err=ctx.Err()}
-  ch<-logChunk{done:true,err:err,request:request,id:jobID}
+  select {case ch<-logChunk{done:true,err:err,request:request,id:jobID}:case <-ctx.Done():}
  }()
  return logReady{chunks:ch,request:request}
 }}
@@ -82,6 +82,10 @@ type model struct {
  logFilter string
  logJobID int64
  logChannel <-chan logChunk
+ logCancel context.CancelFunc
+ logStep string
+ searchMode bool
+ searchQuery string
 }
 type cacheEntry struct { Saved time.Time `json:"saved"`; Payload json.RawMessage `json:"payload"` }
 func cachePath(key string) string {
@@ -90,12 +94,15 @@ func cachePath(key string) string {
  return filepath.Join(base,"xi","github",fmt.Sprintf("%x.json",sum[:12]))
 }
 func readCache(key string, dest any, ttl time.Duration)(bool,bool) {
+ if ok,stale:=hotCache.get(key,dest,ttl);ok {return true,stale}
  b,err:=os.ReadFile(cachePath(key));if err!=nil{return false,false}
  var entry cacheEntry
  if json.Unmarshal(b,&entry)!=nil||entry.Saved.IsZero()||json.Unmarshal(entry.Payload,dest)!=nil{return false,false}
+ hotCache.put(key,dest)
  return true,time.Since(entry.Saved)>ttl
 }
 func writeCache(key string, value any) {
+ hotCache.put(key,value)
  payload,err:=json.Marshal(value);if err!=nil{return}
  b,err:=json.Marshal(cacheEntry{Saved:time.Now(),Payload:payload});if err!=nil{return}
  path:=cachePath(key);if os.MkdirAll(filepath.Dir(path),0700)!=nil{return}
@@ -144,6 +151,11 @@ func (m model) Init() tea.Cmd {
  if len(m.runs)>0 {return tea.Batch(fetchRuns(m.repo,m.request),spinner())}
  return tea.Batch(fetchRuns(m.repo,m.request),spinner())
 }
+func (m model) stopLog() model {if m.logCancel!=nil {m.logCancel();m.logCancel=nil};m.logChannel=nil;return m}
+func (m model) startLog() (tea.Model,tea.Cmd) {
+ m=m.stopLog();ctx,cancel:=context.WithCancel(context.Background());m.logCancel=cancel
+ return m,streamJobLogs(ctx,m.repo,m.logJobID,m.detailID,m.request)
+}
 func (m model) openJobs()(tea.Model,tea.Cmd) {
  if len(m.runs)==0{return m,nil}
  m.page=2;m.request++;m.busy=true;m.refreshing=false;m.message="";m.jobSelected=0;m.stepSelected=0;m.stepFocus=false
@@ -178,27 +190,40 @@ func (m model) Update(msg tea.Msg)(tea.Model,tea.Cmd) {
  case logChunk:
   if v.request!=m.request||m.page!=3||v.id!=m.logJobID {break}
   if v.text!="" {m.detail+=v.text}
-  if v.done {m.busy=false;m.refreshing=false;if v.err!=nil {m.message=v.err.Error()} else {writeCache(fmt.Sprintf("joblogs:%s:%d",m.repo,m.logJobID),m.detail)}} else {return m,waitChunk(m.logChannel)}
+  if v.done {m.logCancel=nil;m.busy=false;m.refreshing=false;if v.err!=nil {m.message=v.err.Error()} else {writeCache(fmt.Sprintf("joblogs:%s:%d",m.repo,m.logJobID),m.detail)}} else {return m,waitChunk(m.logChannel)}
  case detail:
   if v.request!=m.request||m.page!=1||v.target!=m.detailID||v.logs!=m.detailLogs {break}
   m.busy=false;m.refreshing=false
   if v.err!=nil {m.message=v.err.Error()} else {m.detail=v.value;m.detailCache=false;m.message="";m.updated=time.Now()}
  case tea.KeyPressMsg:
+  if m.searchMode {
+   switch v.String() {
+   case "esc":m.searchMode=false
+   case "enter":m.searchMode=false
+   case "backspace":if len(m.searchQuery)>0 {m.searchQuery=m.searchQuery[:len(m.searchQuery)-1]}
+   default:if len(v.String())==1&&len(m.searchQuery)<80 {m.searchQuery+=v.String()}
+   }
+   m.scroll=0;return m,nil
+  }
   switch v.String() {
-  case "ctrl+c","q":return m,tea.Quit
+  case "ctrl+c":m=m.stopLog();return m,tea.Quit
+  case "q":if !m.searchMode {m=m.stopLog();return m,tea.Quit}
   case "esc","backspace","left":
+   if m.searchMode {m.searchMode=false;break}
+   m=m.stopLog()
    if m.page!=0 {if m.page==3 {m.page=2} else if m.page==2 {m.page=1} else {m.page=0};m.scroll=0;m.request++;m.busy=false;m.refreshing=false;m.message=""} else {return m,tea.Quit}
   case "r":
    if m.busy||m.refreshing {break}
    m.request++;m.message="";m.refreshing=true
    if m.page==0{return m,fetchRuns(m.repo,m.request)}
    if m.page==2{return m,fetchJobs(m.repo,m.detailID,m.request)}
-   if m.page==3 {m.detail="";m.busy=true;m.refreshing=false;return m,streamJobLogs(m.repo,m.logJobID,m.detailID,m.request)}
+   if m.page==3 {m.detail="";m.busy=true;m.refreshing=false;return m.startLog()}
    return m,fetchDetail(m.repo,m.detailID,m.detailLogs,m.request)
   case "up","k":
    if m.page==0&&m.selected>0 {m.selected--} else if m.page==2&&m.stepFocus&&len(m.jobs)>0&&m.stepSelected>0 {m.stepSelected--} else if m.page==2&&m.jobSelected>0 {m.jobSelected--;m.stepSelected=0} else if (m.page==1||m.page==3)&&m.scroll>0 {m.scroll--}
   case "down","j":
    if m.page==0&&m.selected<len(m.runs)-1 {m.selected++} else if m.page==2&&m.stepFocus&&len(m.jobs)>0&&m.stepSelected<len(m.jobs[m.jobSelected].Steps)-1 {m.stepSelected++} else if m.page==2&&!m.stepFocus&&m.jobSelected<len(m.jobs)-1 {m.jobSelected++;m.stepSelected=0} else if m.page==1||m.page==3 {m.scroll++}
+  case "/":m.searchMode=true;m.searchQuery="";m.scroll=0
   case "f":if m.page==3 {if m.logFilter=="" {m.logFilter="error"} else {m.logFilter=""};m.scroll=0}
   case "tab":if m.page==2&&len(m.jobs)>0&&len(m.jobs[m.jobSelected].Steps)>0 {m.stepFocus=!m.stepFocus}
   case "enter","right":
@@ -206,7 +231,8 @@ func (m model) Update(msg tea.Msg)(tea.Model,tea.Cmd) {
    if m.page==1 {return m.openJobs()}
    if m.page==2&&len(m.jobs)>0 {m.page=3;m.request++;m.logJobID=m.jobs[m.jobSelected].ID;m.detail="";m.scroll=0;m.message="";m.busy=true;m.refreshing=false
     var cached string;if ok,_:=readCache(fmt.Sprintf("joblogs:%s:%d",m.repo,m.logJobID),&cached,10*time.Minute);ok {m.detail=cached;m.busy=false;m.refreshing=true}
-    return m,streamJobLogs(m.repo,m.logJobID,m.detailID,m.request)
+    m.logStep="";if m.stepFocus&&m.stepSelected<len(m.jobs[m.jobSelected].Steps) {m.logStep=m.jobs[m.jobSelected].Steps[m.stepSelected].Name}
+    return m.startLog()
    }
   case "l":if m.page==1&&!m.detailLogs {return m.openDetail(true)}
   case "J":if m.page==1 {return m.openJobs()}
@@ -233,9 +259,13 @@ func (m model) View() tea.View {
  if m.page==0 {
   body.WriteString(purple.Render("WORKFLOW RUNS")+"\n")
   if len(m.runs)==0&&!m.busy {body.WriteString("No runs found.\n")}
+  if m.searchQuery!="" {body.WriteString(muted.Render("Search: "+m.searchQuery)+"\n")}
   max:=m.height-11;if max<3 {max=3}
   start:=0;if m.selected>=max {start=m.selected-max+1}
-  for i:=start;i<len(m.runs)&&i<start+max;i++ {
+  shown:=0
+  for i:=start;i<len(m.runs)&&shown<max;i++ {
+   if m.searchQuery!=""&&!strings.Contains(strings.ToLower(m.runs[i].Name+" "+m.runs[i].Branch+" "+fmt.Sprint(m.runs[i].ID)),strings.ToLower(m.searchQuery)) {continue}
+   shown++
    r:=m.runs[i];cursor:="  ";if i==m.selected {cursor="❯ "}
    state:=r.Conclusion;if state=="" {state=r.Status}
    label:=fmt.Sprintf("%s%s  %s  ·  %s",cursor,state,r.Name,r.Branch)
@@ -245,9 +275,10 @@ func (m model) View() tea.View {
  } else if m.page==2 {
   body.WriteString(purple.Render("JOBS & STEPS")+"\n")
   max:=m.height-12;if max<3 {max=3};start:=0;if m.jobSelected>=max {start=m.jobSelected-max+1}
-  for i:=start;i<len(m.jobs)&&i<start+max;i++ {j:=m.jobs[i];prefix:="  ";if i==m.jobSelected {prefix="❯ "};body.WriteString(fmt.Sprintf("%s%s  %s  (%d steps)\n",prefix,j.Conclusion,j.Name,len(j.Steps)))}
+  for i:=start;i<len(m.jobs)&&i<start+max;i++ {j:=m.jobs[i];if m.searchQuery!=""&&!strings.Contains(strings.ToLower(j.Name),strings.ToLower(m.searchQuery)) {continue};prefix:="  ";if i==m.jobSelected {prefix="❯ "};body.WriteString(fmt.Sprintf("%s%s  %s  (%d steps)\n",prefix,j.Conclusion,j.Name,len(j.Steps)))}
   if len(m.jobs)==0&&!m.busy {body.WriteString("No jobs available.\n")}
   if len(m.jobs)>0 {
+   if m.searchQuery!="" {body.WriteString(muted.Render("Search: "+m.searchQuery)+"\n")}
    body.WriteString(muted.Render("Tab switches focus between jobs and steps")+"\n")
    steps:=m.jobs[m.jobSelected].Steps
    room:=m.height-14-max;if room<2 {room=2};startStep:=0;if m.stepSelected>=room {startStep=m.stepSelected-room+1}
@@ -255,9 +286,10 @@ func (m model) View() tea.View {
   }
  } else {
   body.WriteString(purple.Render("RUN DETAILS / COMMAND OUTPUT")+"\n")
-  if m.page==3 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d --job %d --log",m.detailID,m.logJobID))+"\n");if m.logFilter!="" {body.WriteString(purple.Render("FILTER: "+m.logFilter)+"\n")} else {body.WriteString("\n")}} else if len(m.runs)>0 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d -R %s",m.runs[m.selected].ID,m.repo))+"\n\n")}
+  if m.page==3 {if m.logStep!="" {body.WriteString(purple.Render("STEP: "+m.logStep)+"\n")};body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d --job %d --log",m.detailID,m.logJobID))+"\n");if m.logFilter!="" {body.WriteString(purple.Render("FILTER: "+m.logFilter)+"\n")} else {body.WriteString("\n")}} else if len(m.runs)>0 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d -R %s",m.runs[m.selected].ID,m.repo))+"\n\n")}
   lines:=strings.Split(m.detail,"\n")
-  if m.page==3&&m.logFilter!="" {filtered:=make([]string,0,len(lines)/4);for _,line:=range lines {if strings.Contains(line,m.logFilter) {filtered=append(filtered,line)}};lines=filtered}
+  if m.page==3&&(m.logFilter!=""||m.logStep!="") {filtered:=make([]string,0,len(lines)/4);for _,line:=range lines {if m.logFilter!=""&&!strings.Contains(strings.ToLower(line),strings.ToLower(m.logFilter)) {continue};if m.logStep!=""&&!strings.Contains(strings.ToLower(line),strings.ToLower(m.logStep)) {continue};filtered=append(filtered,line)};lines=filtered}
+  if m.searchQuery!="" {filtered:=make([]string,0,len(lines)/4);for _,line:=range lines {if strings.Contains(strings.ToLower(line),strings.ToLower(m.searchQuery)) {filtered=append(filtered,line)}};lines=filtered}
   max:=m.height-13;if max<3 {max=3}
   maxScroll:=len(lines)-max;if maxScroll<0 {maxScroll=0}
   if m.scroll>maxScroll {m.scroll=maxScroll};if m.scroll<0 {m.scroll=0}
@@ -265,6 +297,7 @@ func (m model) View() tea.View {
   if len(lines)>max {lines=lines[:max]}
   for _,line:=range lines {body.WriteString(line+"\n")}
  }
+ if m.searchMode {body.WriteString("\n"+purple.Render("⌕ Search: "+m.searchQuery+"▏")+"\n")}
  body.WriteString("\n"+muted.Render("← Esc Back  ↑↓ Scroll  Enter Open  Tab Steps  F Errors  L Logs  D Details  R Refresh  Q Quit"))
  v:=tea.NewView(border.Width(w).Render(body.String()))
  v.AltScreen=true
