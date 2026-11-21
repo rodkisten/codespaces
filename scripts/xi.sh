@@ -493,39 +493,40 @@ xi_gh_pick_ref() {
 
 xi_gh_dispatch() {
   need gh
-  local repo workflow ref input
+  local repo workflow ref input workflow_row
   repo=$(xi_gh_repo "${1:-}")
-  workflow="${2:-}"
-  ref="${3:-}"
-
+  workflow="${2:-}"; ref="${3:-}"
   if [[ -z "$workflow" ]]; then
-    workflow=$(gh workflow list -R "$repo" --json name,path --jq '.[] | [.name,.path] | @tsv' | {
-      if (( HAS_GUM && IS_TTY_IN )); then gum filter --placeholder "Choose workflow"; else head -n 1; fi
+    workflow_row=$(gh workflow list -R "$repo" --json name,path --jq '.[] | [.name,.path] | @tsv' | {
+      if (( HAS_GUM && IS_TTY_IN && IS_TTY_OUT )); then gum filter --placeholder "Select workflow"; else head -n 1; fi
     }) || return 1
-    workflow="${workflow#*$'\t'}"
+    [[ "$workflow_row" == *$'\t'* ]] || { say "No workflow selected"; return 1; }
+    workflow="${workflow_row#*$'\t'}"
   fi
   [[ -n "$workflow" ]] || fail "Missing workflow"
-
+  if [[ -z "$ref" ]]; then ref=$(xi_gh_pick_ref "$repo") || return 1; fi
   local -a args=()
-  if [[ -z "$ref" ]]; then
-    if (( IS_TTY_IN )); then
-      ref=$(xi_gh_pick_ref "$repo") || return 1
-      while true; do
-        read -r -p "Input key=value (blank to finish): " input
-        [[ -n "$input" ]] || break
-        [[ "$input" == *=* && "${input%%=*}" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { say "Invalid input"; continue; }
-        args+=(-f "$input")
-      done
-    else
-      ref="main"
-    fi
+  if (( IS_TTY_IN )); then
+    say "Workflow inputs: enter key=value, one per line. Leave blank to continue."
+    while true; do
+      if (( HAS_GUM && IS_TTY_OUT )); then input=$(gum input --placeholder "input=value (Enter when done)") || return 1
+      else read -r -p "Input key=value (blank to finish): " input || return 1; fi
+      [[ -n "$input" ]] || break
+      [[ "$input" == *=* && "${input%%=*}" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { say "Invalid input name; expected key=value"; continue; }
+      args+=(-f "$input")
+    done
   fi
-
-  confirm "Dispatch $workflow on $repo ($ref) with ${#args[@]} arguments?" || return 1
-  gh workflow run "$workflow" -R "$repo" --ref "$ref" "${args[@]}"
-  say "Dispatched. Use: xi gh runs $repo"
+  say "Repository: $repo"
+  say "Workflow: $workflow"
+  say "Ref: $ref"
+  say "Inputs: ${#args[@]} CLI arguments"
+  confirm "Dispatch this workflow?" || return 1
+  gh workflow run "$workflow" -R "$repo" --ref "$ref" "${args[@]}" || return 1
+  say "Workflow dispatch accepted. GitHub may take a moment to create its run."
+  if (( IS_TTY_IN )); then
+    if confirm "Open recent runs now?"; then xi_gh_runs "$repo"; fi
+  fi
 }
-
 xi_gh_menu() {
   need gh
   local choice repo
@@ -567,7 +568,7 @@ xi_choice() {
     local index=1 choice options=("$@")
     for choice in "$@"; do
       printf "%d) %s\n" "$index" "$choice" >&2
-      ((index++))
+      index=$((index + 1))
     done
     read -r -p "Choose: " choice
     [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice < index )) || return 1
