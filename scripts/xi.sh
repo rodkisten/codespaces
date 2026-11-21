@@ -557,10 +557,46 @@ xi_gh_dispatch() {
     if confirm "Open recent runs now?"; then xi_gh_runs "$repo"; fi
   fi
 }
+xi_tui_install() {
+  need go
+  local repo_root="${XI_SOURCE_ROOT:-}"
+  if [[ -z "$repo_root" ]]; then
+    local source_dir
+    source_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+    [[ -f "$source_dir/cmd/xi-tui/go.mod" ]] && repo_root="$source_dir"
+  fi
+  [[ -n "$repo_root" && -f "$repo_root/cmd/xi-tui/go.mod" ]] || fail "TUI source not found. Run from the codespaces checkout or set XI_SOURCE_ROOT."
+  local dest="$XI_BIN/xi-tui" temp
+  temp=$(mktemp "$XI_BIN/.xi-tui.XXXXXX") || return 1
+  say "Building xi-tui (first build downloads Go dependencies; later builds reuse the Go cache)…"
+  if (cd "$repo_root/cmd/xi-tui" && go build -trimpath -o "$temp" .); then
+    chmod 755 "$temp" && mv -f "$temp" "$dest"
+    say "Installed $dest"
+  else
+    rm -f "$temp"
+    fail "TUI build failed. Existing binary was left untouched."
+  fi
+}
+xi_tui_launch() {
+  local repo="${1:-}"
+  if [[ ! -x "$XI_BIN/xi-tui" ]]; then
+    if command -v go >/dev/null 2>&1; then
+      xi_tui_install || return 1
+    else
+      say "Go TUI is not installed. Use xi tui install after installing Go."
+      return 1
+    fi
+  fi
+  if [[ -n "$repo" ]]; then "$XI_BIN/xi-tui" "$repo"; else "$XI_BIN/xi-tui"; fi
+}
 xi_gh_menu() {
   need gh
   local choice repo
   repo=$(xi_gh_repo "${1:-}")
+  if [[ -t 0 && -t 1 && "${XI_GH_LEGACY_MENU:-0}" != 1 ]]; then
+    if xi_tui_launch "$repo"; then return 0; fi
+    say "Falling back to the Bash menu."
+  fi
   while true; do
     choice=$(xi_choice "Commit checks" "Workflow runs" "Watch a run" "Failed logs" "Trigger workflow" "Back") || return 0
     case "$choice" in
@@ -674,6 +710,7 @@ xi [--yes] [--debug] <command>
   xi update [--all]
   xi git [run]                      Browse or execute safe Git snippets
   xi gh [menu|checks|runs|watch|logs|dispatch] [OWNER/REPO] [ARG]
+  xi tui [install|run] [OWNER/REPO]  Build or open the Bubble Tea interface
   xi menu
   xi doctor
   xi self-update
@@ -702,6 +739,7 @@ main() {
     doctor)         xi_path_doctor; say "PATH checked: $XI_BIN" ;;
     zle-init)       xi_zle_init ;;
     gh)             xi_gh "$@" ;;
+    tui)            case "${1:-run}" in install) xi_tui_install ;; run) xi_tui_launch "${2:-}" ;; *) fail "Usage: xi tui [install|run] [OWNER/REPO]" ;; esac ;;
     github)
       while (($#)); do
         case "$1" in
