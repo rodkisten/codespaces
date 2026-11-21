@@ -69,7 +69,7 @@ for asset in data.get("assets",[]):
  if pattern and not re.search(pattern,name,re.I): continue
  if not low.endswith((".deb",".tar.gz",".tgz",".zip")): continue
  if not any(a in low for a in aliases) and not any(a in low for a in ("universal","all.","noarch")): continue
- print(name+"\\t"+asset["browser_download_url"])
+ print(name+chr(9)+asset["browser_download_url"])
 ' <<< "$json")
  [[ -n "$selection" ]] || fail 'No compatible release asset. Try --asset REGEX'
  if [[ $(printf '%s\n' "$selection" | wc -l) -gt 1 ]]; then
