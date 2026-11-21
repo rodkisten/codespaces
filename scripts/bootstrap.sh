@@ -45,7 +45,7 @@ else
 fi
 
 # Controle automático de numeração das etapas
-TOTAL_STEPS=5
+TOTAL_STEPS=6
 CURRENT_STEP=0
 
 step() {
@@ -167,6 +167,18 @@ build_rodlog() {
   fi
 }
 
+# Install xi as a global command without running remote installers.
+install_xi() {
+  step "Installing xi universal installer"
+  local src="$REPO_DIR/scripts/xi.sh"
+  if [[ -f "$src" ]]; then
+    install -m 0755 "$src" "$LOCAL_BIN/xi"
+    log_ok "xi installed at $LOCAL_BIN/xi"
+  else
+    log_skip "scripts/xi.sh not present"
+  fi
+}
+
 # Etapa 5: Executa diagnóstico do ambiente via mobile-doctor
 run_health_check() {
   step "Executando diagnóstico (mobile-doctor)"
@@ -197,6 +209,7 @@ main() {
       setup_zshrc
       setup_tailscale
       install_rod_check
+      install_xi
       build_rodlog
       run_health_check
       ;;
