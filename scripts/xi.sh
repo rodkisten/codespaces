@@ -455,7 +455,7 @@ xi_gh_checks() {
 
 xi_gh_pick_run() {
   local repo="$1" selected
-  selected=$(gh run list -R "$repo" --limit 25 --json databaseId,status,conclusion,workflowName,headBranch --jq '.[] | "\(.databaseId)  [\(.conclusion // .status)]  \(.workflowName)  (\(.headBranch))"' | xi_select_stream "Choose a run") || return 1
+  selected=$(gh run list -R "$repo" --limit 25 --json databaseId,status,conclusion,workflowName,headBranch --jq '.[] | "\(.databaseId)  [\(.conclusion // .status)]  \(.workflowName)  (\(.headBranch))"' | { cat; printf "%s\n" "← Back"; } | xi_select_stream "Choose a run") || return 1
   selected="${selected%% *}"
   [[ "$selected" =~ ^[0-9]+$ ]] || return 1
   printf "%s\n" "$selected"
@@ -467,7 +467,7 @@ xi_gh_panel() {
   (( cols > 78 )) && cols=78
   (( cols < 36 )) && cols=36
   if (( HAS_GUM && IS_TTY_OUT )) && xi_gum_supports style; then
-    "$GUM_TUI" style --border rounded --padding "1 2" --width "$((cols-2))" "⚡ $title" "❯ $command" "────────────────" "$output"
+    "$GUM_TUI" style --border rounded --padding "1 2" --width "$((cols-2))" "╭─ ⚡ $title" "│ COMMAND  ❯ $command" "│ OUTPUT" "│ ────────────────" "$output" "← Back · Esc"
   else printf "\n╭─ %s\n│ $ %s\n├────────────────\n%s\n╰────────────────\n" "$title" "$command" "$output"; fi
 }
 xi_gh_view_run() {
@@ -476,13 +476,13 @@ xi_gh_view_run() {
     output=$(gh run view "$id" -R "$repo" 2>&1) || true
     xi_gh_panel "Run #$id" "gh run view $id -R $repo" "$output"
     (( IS_TTY_IN )) || return 0
-    choice=$(xi_choice "Jobs and steps" "Full logs" "Failed logs" "Watch" "Back") || return 0
+    choice=$(xi_choice "Jobs and steps" "Full logs" "Failed logs" "Watch" "← Back") || return 0
     case "$choice" in
       "Jobs and steps") output=$(gh run view "$id" -R "$repo" --json jobs --jq '.jobs[] | "\(.conclusion // .status) \(.name)"' 2>&1) || true; xi_gh_panel "Jobs #$id" "gh run view $id --json jobs" "$output" ;;
       "Full logs") xi_gh_pager "$repo" "$id" --log ;;
       "Failed logs") xi_gh_pager "$repo" "$id" --log-failed ;;
       Watch) gh run watch "$id" -R "$repo" --exit-status || true ;;
-      Back) return 0 ;;
+      Back|"← Back") return 0 ;;
     esac
   done
 }
@@ -601,19 +601,25 @@ xi_select_stream() {
   while IFS= read -r line; do options+=("$line"); done
   ((${#options[@]})) || return 1
   if (( IS_TTY_IN && IS_TTY_OUT )) && xi_gum_supports filter; then
-    printf "%s\n" "${options[@]}" | "$GUM_TUI" filter --placeholder "$prompt" --height 12
+    selected=$(printf "%s\n" "${options[@]}" | "$GUM_TUI" filter --placeholder "$prompt" --height 12) || return 1
   elif (( IS_TTY_IN && IS_TTY_OUT )) && xi_gum_supports choose; then
-    printf "%s\n" "${options[@]}" | "$GUM_TUI" choose --header "$prompt"
+    selected=$(printf "%s\n" "${options[@]}" | "$GUM_TUI" choose --header "$prompt" --height 12) || return 1
   elif (( IS_TTY_IN )); then
-    printf "%s\n" "$prompt" >&2
-    for line in "${options[@]}"; do printf "%d) %s\n" "$index" "$line" >&2; index=$((index+1)); done
-    read -r -p "Choose number: " selected </dev/tty
+    printf "\n╭─ %s ─╮\n" "$prompt" >&2
+    for line in "${options[@]}"; do printf "%2d  %s\n" "$index" "$line" >&2; index=$((index+1)); done
+    read -r -p "Choose number: " selected </dev/tty || return 1
     [[ "$selected" =~ ^[0-9]+$ ]] && (( selected>=1 && selected<=${#options[@]} )) || return 1
-    printf "%s\n" "${options[selected-1]}"
-  else printf "%s\n" "${options[0]}"; fi
+    selected="${options[selected-1]}"
+  else selected="${options[0]}"; fi
+  [[ "$selected" == "← Back" || "$selected" == "← Voltar" ]] && return 1
+  printf "%s\n" "$selected"
 }
 xi_choice() {
-  printf "%s\n" "$@" | xi_select_stream "Search xi actions"
+  local -a items=("$@")
+  local item has_back=0
+  for item in "${items[@]}"; do [[ "$item" == "← Back" ]] && has_back=1; done
+  (( has_back )) || items+=("← Back")
+  printf "%s\n" "${items[@]}" | xi_select_stream "↑↓ navigate · Enter select · Esc back"
 }
 xi_settings() {
   local choice
