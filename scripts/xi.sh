@@ -458,7 +458,7 @@ xi_gh_watch() {
   runid="${2:-}"
   if [[ -z "$runid" ]]; then
     runid=$(gh run list -R "$repo" --limit 10 --json databaseId,displayTitle,status --jq '.[] | [.databaseId,.status,.displayTitle] | @tsv' | {
-      if (( HAS_GUM && IS_TTY_IN )); then gum filter --placeholder "Select run"; else head -n 1; fi
+      xi_select_stream "Select run"
     }) || return 1
     runid="${runid%%$'\t'*}"
   fi
@@ -473,7 +473,7 @@ xi_gh_logs() {
   runid="${2:-}"
   if [[ -z "$runid" ]]; then
     runid=$(gh run list -R "$repo" --limit 20 --json databaseId,status,conclusion,displayTitle --jq '.[] | [.databaseId,.status,.conclusion,.displayTitle] | @tsv' | {
-      if (( HAS_GUM && IS_TTY_IN )); then gum filter --placeholder "Choose run for logs"; else head -n 1; fi
+      xi_select_stream "Choose run for logs"
     }) || return 1
     runid="${runid%%$'\t'*}"
   fi
@@ -484,7 +484,7 @@ xi_gh_logs() {
 xi_gh_pick_ref() {
   local repo="$1" ref
   if (( HAS_GUM && IS_TTY_IN )); then
-    ref=$(gh api "repos/$repo/branches?per_page=100" --jq '.[].name' | gum filter --placeholder "Branch or ref") || return 1
+    ref=$(gh api "repos/$repo/branches?per_page=100" --jq '.[].name' | xi_select_stream "Branch or ref") || return 1
   else
     read -r -p "Branch or ref [main]: " ref
   fi
@@ -498,7 +498,7 @@ xi_gh_dispatch() {
   workflow="${2:-}"; ref="${3:-}"
   if [[ -z "$workflow" ]]; then
     workflow_row=$(gh workflow list -R "$repo" --json name,path --jq '.[] | [.name,.path] | @tsv' | {
-      if (( HAS_GUM && IS_TTY_IN && IS_TTY_OUT )); then gum filter --placeholder "Select workflow"; else head -n 1; fi
+      xi_select_stream "Select workflow"
     }) || return 1
     [[ "$workflow_row" == *$'\t'* ]] || { say "No workflow selected"; return 1; }
     workflow="${workflow_row#*$'\t'}"
@@ -561,21 +561,30 @@ xi_gh() {
 # ==============================================================================
 # 10. Interactive TUI Menu Engine
 # ==============================================================================
-xi_choice() {
-  if (( HAS_GUM && IS_TTY_IN && IS_TTY_OUT )); then
-    printf "%s\n" "$@" | gum filter --placeholder "Search xi actions" --height 12
-  else
-    local index=1 choice options=("$@")
-    for choice in "$@"; do
-      printf "%d) %s\n" "$index" "$choice" >&2
-      index=$((index + 1))
-    done
-    read -r -p "Choose: " choice
-    [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice < index )) || return 1
-    printf "%s\n" "${options[choice-1]}"
-  fi
+xi_gum_supports() {
+  (( HAS_GUM )) || return 1
+  gum --help 2>/dev/null | grep -Eq "(^|[[:space:]])$1([[:space:]]|$)"
 }
-
+xi_select_stream() {
+  local prompt="$1" selected line index=1
+  local -a options=()
+  while IFS= read -r line; do options+=("$line"); done
+  ((${#options[@]})) || return 1
+  if (( IS_TTY_IN && IS_TTY_OUT )) && xi_gum_supports filter; then
+    printf "%s\n" "${options[@]}" | gum filter --placeholder "$prompt"
+  elif (( IS_TTY_IN && IS_TTY_OUT )) && xi_gum_supports choose; then
+    printf "%s\n" "${options[@]}" | gum choose --header "$prompt"
+  elif (( IS_TTY_IN )); then
+    printf "%s\n" "$prompt" >&2
+    for line in "${options[@]}"; do printf "%d) %s\n" "$index" "$line" >&2; index=$((index+1)); done
+    read -r -p "Choose number: " selected </dev/tty
+    [[ "$selected" =~ ^[0-9]+$ ]] && (( selected>=1 && selected<=${#options[@]} )) || return 1
+    printf "%s\n" "${options[selected-1]}"
+  else printf "%s\n" "${options[0]}"; fi
+}
+xi_choice() {
+  printf "%s\n" "$@" | xi_select_stream "Search xi actions"
+}
 xi_settings() {
   local choice
   choice=$(xi_choice "Enable update checks" "Disable update checks" "Show config" "Show debug log path" "Back") || return 0
