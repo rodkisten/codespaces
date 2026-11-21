@@ -8,6 +8,7 @@ import (
  "fmt"
  "os"
  "os/exec"
+ "context"
  "strings"
 
  tea "charm.land/bubbletea/v2"
@@ -88,8 +89,11 @@ func fetchDetail(repo string,id int64,logs bool,request int)tea.Cmd{return func(
  return detail{value:out,request:request,target:id,logs:logs}
 }}
 func gh(args ...string) (string,error) {
- cmd:=exec.Command("gh",args...)
+ ctx,cancel:=context.WithTimeout(context.Background(),18*time.Second)
+ defer cancel()
+ cmd:=exec.CommandContext(ctx,"gh",args...)
  out,err:=cmd.CombinedOutput()
+ if ctx.Err()!=nil {return "",fmt.Errorf("GitHub request timed out after 18s; cached data remains available")}
  if err!=nil {return "",fmt.Errorf("%s: %s",err,strings.TrimSpace(string(out)))}
  return string(out),nil
 }
@@ -98,7 +102,10 @@ func initial(repo string) model {
  if runs,ok,_:=cachedRuns(repo);ok {m.runs=runs;m.fromCache=true;m.refreshing=true} else {m.busy=true}
  return m
 }
-func (m model) Init() tea.Cmd {return tea.Batch(fetchRuns(m.repo,m.request),spinner())}
+func (m model) Init() tea.Cmd {
+ if len(m.runs)>0 {return tea.Batch(fetchRuns(m.repo,m.request),spinner())}
+ return tea.Batch(fetchRuns(m.repo,m.request),spinner())
+}
 func (m model) openDetail(logs bool)(tea.Model,tea.Cmd) {
  if len(m.runs)==0{return m,nil}
  id:=m.runs[m.selected].ID
@@ -125,6 +132,7 @@ func (m model) Update(msg tea.Msg)(tea.Model,tea.Cmd) {
   case "esc","backspace","left":
    if m.page!=0 {m.page=0;m.scroll=0;m.request++;m.busy=false;m.refreshing=false;m.message=""} else {return m,tea.Quit}
   case "r":
+   if m.busy||m.refreshing {break}
    m.request++;m.message="";m.refreshing=true
    if m.page==0{return m,fetchRuns(m.repo,m.request)}
    return m,fetchDetail(m.repo,m.detailID,m.detailLogs,m.request)
@@ -133,7 +141,10 @@ func (m model) Update(msg tea.Msg)(tea.Model,tea.Cmd) {
   case "down","j":
    if m.page==0&&m.selected<len(m.runs)-1 {m.selected++} else if m.page==1 {m.scroll++}
   case "enter","right":if m.page==0 {return m.openDetail(false)}
-  case "l":if m.page==1 {return m.openDetail(true)}
+  case "l":if m.page==1&&!m.detailLogs {return m.openDetail(true)}
+  case "d":if m.page==1&&m.detailLogs {return m.openDetail(false)}
+  case "home","g":if m.page==1 {m.scroll=0}
+  case "end","G":if m.page==1 {m.scroll=len(strings.Split(m.detail,"\n"))}
   }
  }
  return m,nil
@@ -147,8 +158,10 @@ func (m model) View() tea.View {
  var body strings.Builder
  body.WriteString(purple.Render("⚡ xi  /  GitHub Actions")+"\n")
  body.WriteString(muted.Render(m.repo)+"\n\n")
- if m.busy||m.refreshing {frames:=[]string{"◐","◓","◑","◒"};state:="Loading";if m.refreshing {state="Refreshing"};body.WriteString(purple.Render(frames[m.frame%len(frames)]+" "+state+" GitHub data…")+"\n")} else if m.fromCache||m.detailCache {body.WriteString(muted.Render("⚡ Cached snapshot · R refresh")+"\n")}
+ if m.busy||m.refreshing {frames:=[]string{"◐","◓","◑","◒"};state:="Loading";if m.refreshing {state="Syncing"};body.WriteString(purple.Render(frames[m.frame%len(frames)]+" "+state+" GitHub data…")+"\n")}
+ if (m.page==0&&m.fromCache)||(m.page==1&&m.detailCache) {body.WriteString(muted.Render("⚡ Instant cache · refreshing in background")+"\n")}
  if m.message!="" {body.WriteString("⚠ "+m.message+"\n")}
+ if !m.updated.IsZero()&&!m.refreshing&&!m.busy {body.WriteString(muted.Render("✓ Synced "+m.updated.Format("15:04:05"))+"\n")}
  if m.page==0 {
   body.WriteString(purple.Render("WORKFLOW RUNS")+"\n")
   if len(m.runs)==0&&!m.busy {body.WriteString("No runs found.\n")}
@@ -166,12 +179,13 @@ func (m model) View() tea.View {
   if len(m.runs)>0 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d -R %s",m.runs[m.selected].ID,m.repo))+"\n\n")}
   lines:=strings.Split(m.detail,"\n")
   max:=m.height-13;if max<3 {max=3}
-  if m.scroll>=len(lines) {m.scroll=len(lines)-1};if m.scroll<0 {m.scroll=0}
-  if m.scroll<len(lines) {lines=lines[m.scroll:]}
-  if len(lines)>max {lines=lines[:max];lines=append(lines,"↓ scroll for more")}
+  maxScroll:=len(lines)-max;if maxScroll<0 {maxScroll=0}
+  if m.scroll>maxScroll {m.scroll=maxScroll};if m.scroll<0 {m.scroll=0}
+  lines=lines[m.scroll:]
+  if len(lines)>max {lines=lines[:max]}
   for _,line:=range lines {body.WriteString(line+"\n")}
  }
- body.WriteString("\n"+muted.Render("← Esc Back   ↑↓ Navigate   Enter Details   L Failed logs   R Refresh   Q Quit"))
+ body.WriteString("\n"+muted.Render("← Esc Back  ↑↓ Scroll  Enter Details  L Logs  D Details  R Refresh  Q Quit"))
  v:=tea.NewView(border.Width(w).Render(body.String()))
  v.AltScreen=true
  return v
