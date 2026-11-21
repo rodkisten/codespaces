@@ -28,7 +28,7 @@ xi [--yes] <command>
   xi inventory
   xi update [--all]
   xi git [run]                      Browse or execute safe Git snippets
-  xi gh [menu|checks|runs|watch|dispatch] [OWNER/REPO] [ARG]
+  xi gh [menu|checks|runs|watch|logs|dispatch] [OWNER/REPO] [ARG]
   xi menu
   xi doctor
   xi self-update
@@ -352,6 +352,150 @@ xi_gh_dispatch() {
   confirm "Trigger $workflow on $repo at $ref?" || return 1
   gh workflow run "$workflow" -R "$repo" --ref "$ref"
   say "Dispatched. Use xi gh runs $repo to find the run."
+}
+xi_gh_logs() {
+  need gh; local repo runid
+  repo=$(xi_gh_repo "${1:-}"); runid="${2:-}"
+  if [[ -z "$runid" ]]; then
+    runid=$(gh run list -R "$repo" --limit 20 --json databaseId,status,conclusion,displayTitle --jq '.[] | [.databaseId,.status,.conclusion,.displayTitle] | @tsv' | { if command -v gum >/dev/null && [[ -t 0 ]]; then gum filter --placeholder "Choose run for logs"; else head -n 1; fi; }) || return
+    runid="${runid%%
+  need gh; local choice repo
+  repo=$(xi_gh_repo "${1:-}")
+  while true; do
+    choice=$(xi_choice "Commit checks" "Workflow runs" "Watch a run" "Failed logs" "Trigger workflow" "Back") || return
+    case "$choice" in
+      "Commit checks") xi_gh_checks "$repo" ;;
+      "Workflow runs") xi_gh_runs "$repo" ;;
+      "Watch a run") xi_gh_watch "$repo" ;;
+      "Failed logs") xi_gh_logs "$repo" ;;
+      "Trigger workflow") xi_gh_dispatch_interactive "$repo" ;;
+      Back) return ;;
+    esac
+  done
+}
+xi_gh() {
+  local action="${1:-menu}"; [[ $# -eq 0 ]] || shift
+  case "$action" in
+    menu) xi_gh_menu "${1:-}" ;;
+    checks) xi_gh_checks "${1:-}" "${2:-}" ;;
+    runs) xi_gh_runs "${1:-}" ;;
+    watch) xi_gh_watch "${1:-}" "${2:-}" ;;
+    logs) xi_gh_logs "${1:-}" "${2:-}" ;;
+    dispatch) xi_gh_dispatch "${1:-}" "${2:-}" "${3:-}" ;;
+    *) fail "Usage: xi gh [menu|checks|runs|watch|dispatch] [OWNER/REPO] [ARG]" ;;
+  esac
+}
+main() {
+ local action="${1:-help}" repo="" dir="" cmd=bash releases=0 version="" asset=""
+ if [[ "$action" == --yes ]]; then XI_YES=1; shift; action="${1:-help}"; fi
+ [[ $# -eq 0 ]] || shift
+ case "$action" in
+ help|-h|--help) usage ;;
+ menu) xi_menu ;;
+ doctor) xi_path_doctor ;;
+ gh) xi_gh "$@" ;;
+ github) while (($#)); do case "$1" in --releases) releases=1;; --dir) dir="$2"; shift;; --cmd) cmd="$2"; shift;; *) repo="$1";; esac; shift; done; [[ -n "$repo" ]] || fail "Missing repo"; if ((releases)); then local tag; tag=$(gh_json "$repo" releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])'); install_repo "$repo" "$dir" "$cmd" "$tag"; else install_repo "$repo" "$dir" "$cmd" ""; fi ;;
+ releases) repo="${1:?Missing repository}"; shift; while (($#)); do case "$1" in -v|--version) version="$2"; shift;; --asset) asset="$2"; shift;; *) fail "Unknown option: $1";; esac; shift; done; release_install "$repo" "$version" "$asset" ;;
+ zinit) xi_zinit "${1:?Missing plugin}" ;;
+ zshrc) [[ "${1:-}" == add && $# -eq 2 ]] || fail "Usage: xi zshrc add LINE"; touch "$HOME/.zshrc"; grep -Fxq -- "$2" "$HOME/.zshrc" || printf "\n%s\n" "$2" >> "$HOME/.zshrc" ;;
+ config) case "${1:-}" in --autoupdate) config_set XI_AUTOUPDATE "${2:?}";; --zsh-pkg) config_set XI_ZSH_PKG "${2:?}";; "") cat "$CONFIG";; *) fail "Unknown config option";; esac ;;
+ inventory) xi_inventory ;;
+ update) [[ "${1:-}" == --all ]] || fail "Use xi update --all"; xi_updates ;;
+ self-update) local tmp; tmp=$(mktemp); fetch -o "$tmp" https://raw.githubusercontent.com/rodkisten/codespaces/main/scripts/xi.sh; bash -n "$tmp" && confirm "Update xi?" && install -m 755 "$tmp" "$XI_BIN/xi"; rm -f "$tmp" ;;
+ git) git_snippets "${1:-}" ;;
+ */*) install_repo "$action" "" bash "" ;;
+ *) fail "Unknown command: $action" ;;
+ esac
+}
+xi_path_doctor
+if [[ $# -eq 0 ]]; then xi_menu; else main "$@"; fi
+\t'*}"
+  fi
+  [[ "$runid" =~ ^[0-9]+$ ]] || fail "Invalid run ID"
+  gh run view "$runid" -R "$repo" --log-failed
+}
+xi_gh_branches() {
+  local repo="$1"
+  gh api "repos/$repo/branches?per_page=100" --jq '.[].name'
+}
+xi_gh_pick_ref() {
+  local repo="$1" ref
+  if command -v gum >/dev/null && [[ -t 0 ]]; then
+    ref=$(xi_gh_branches "$repo" | gum filter --placeholder "Branch or ref") || return
+  else read -r -p "Branch or ref [main]: " ref; fi
+  printf "%s\n" "${ref:-main}"
+}
+xi_gh_dispatch_interactive() {
+  need gh; local repo workflow ref input value
+  repo=$(xi_gh_repo "${1:-}")
+  workflow=$(gh workflow list -R "$repo" --json name,path --jq '.[] | [.name,.path] | @tsv' | { if command -v gum >/dev/null && [[ -t 0 ]]; then gum filter --placeholder "Select workflow"; else head -n 1; fi; }) || return
+  workflow="${workflow#*
+  need gh; local choice repo
+  repo=$(xi_gh_repo "${1:-}")
+  while true; do
+    choice=$(xi_choice "Commit checks" "Workflow runs" "Watch a run" "Trigger workflow" "Back") || return
+    case "$choice" in
+      "Commit checks") xi_gh_checks "$repo" ;;
+      "Workflow runs") xi_gh_runs "$repo" ;;
+      "Watch a run") xi_gh_watch "$repo" ;;
+      "Trigger workflow") xi_gh_dispatch "$repo" ;;
+      Back) return ;;
+    esac
+  done
+}
+xi_gh() {
+  local action="${1:-menu}"; [[ $# -eq 0 ]] || shift
+  case "$action" in
+    menu) xi_gh_menu "${1:-}" ;;
+    checks) xi_gh_checks "${1:-}" "${2:-}" ;;
+    runs) xi_gh_runs "${1:-}" ;;
+    watch) xi_gh_watch "${1:-}" "${2:-}" ;;
+    dispatch) xi_gh_dispatch "${1:-}" "${2:-}" "${3:-}" ;;
+    *) fail "Usage: xi gh [menu|checks|runs|watch|dispatch] [OWNER/REPO] [ARG]" ;;
+  esac
+}
+main() {
+ local action="${1:-help}" repo="" dir="" cmd=bash releases=0 version="" asset=""
+ if [[ "$action" == --yes ]]; then XI_YES=1; shift; action="${1:-help}"; fi
+ [[ $# -eq 0 ]] || shift
+ case "$action" in
+ help|-h|--help) usage ;;
+ menu) xi_menu ;;
+ doctor) xi_path_doctor ;;
+ gh) xi_gh "$@" ;;
+ github) while (($#)); do case "$1" in --releases) releases=1;; --dir) dir="$2"; shift;; --cmd) cmd="$2"; shift;; *) repo="$1";; esac; shift; done; [[ -n "$repo" ]] || fail "Missing repo"; if ((releases)); then local tag; tag=$(gh_json "$repo" releases/latest | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])'); install_repo "$repo" "$dir" "$cmd" "$tag"; else install_repo "$repo" "$dir" "$cmd" ""; fi ;;
+ releases) repo="${1:?Missing repository}"; shift; while (($#)); do case "$1" in -v|--version) version="$2"; shift;; --asset) asset="$2"; shift;; *) fail "Unknown option: $1";; esac; shift; done; release_install "$repo" "$version" "$asset" ;;
+ zinit) xi_zinit "${1:?Missing plugin}" ;;
+ zshrc) [[ "${1:-}" == add && $# -eq 2 ]] || fail "Usage: xi zshrc add LINE"; touch "$HOME/.zshrc"; grep -Fxq -- "$2" "$HOME/.zshrc" || printf "\n%s\n" "$2" >> "$HOME/.zshrc" ;;
+ config) case "${1:-}" in --autoupdate) config_set XI_AUTOUPDATE "${2:?}";; --zsh-pkg) config_set XI_ZSH_PKG "${2:?}";; "") cat "$CONFIG";; *) fail "Unknown config option";; esac ;;
+ inventory) xi_inventory ;;
+ update) [[ "${1:-}" == --all ]] || fail "Use xi update --all"; xi_updates ;;
+ self-update) local tmp; tmp=$(mktemp); fetch -o "$tmp" https://raw.githubusercontent.com/rodkisten/codespaces/main/scripts/xi.sh; bash -n "$tmp" && confirm "Update xi?" && install -m 755 "$tmp" "$XI_BIN/xi"; rm -f "$tmp" ;;
+ git) git_snippets "${1:-}" ;;
+ */*) install_repo "$action" "" bash "" ;;
+ *) fail "Unknown command: $action" ;;
+ esac
+}
+xi_path_doctor
+if [[ $# -eq 0 ]]; then xi_menu; else main "$@"; fi
+\t'}"
+  [[ -n "$workflow" ]] || return 1
+  ref=$(xi_gh_pick_ref "$repo") || return
+  local -a args=()
+  if command -v yq >/dev/null && [[ -t 0 ]]; then
+    say "Optional workflow inputs can be entered as key=value; blank ends."
+  fi
+  if [[ -t 0 ]]; then
+    while true; do
+      read -r -p "Input key=value (blank to finish): " input
+      [[ -n "$input" ]] || break
+      [[ "$input" == *=* && "${input%%=*}" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { say "Invalid input"; continue; }
+      args+=(-f "$input")
+    done
+  fi
+  confirm "Dispatch $workflow on $repo ($ref) with ${#args[@]} arguments?" || return
+  gh workflow run "$workflow" -R "$repo" --ref "$ref" "${args[@]}"
+  say "Workflow dispatched. Use xi gh runs $repo to follow its execution."
 }
 xi_gh_menu() {
   need gh; local choice repo
