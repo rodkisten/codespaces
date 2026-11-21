@@ -48,7 +48,16 @@ enable_debug() {
 # ==============================================================================
 # 3. Startup Capability Detection (Cached once; eliminates repeated forks)
 # ==============================================================================
-HAS_GUM=0; command -v gum >/dev/null 2>&1 && HAS_GUM=1
+# Resolve the Charmbracelet TUI binary independently of unrelated programs named gum.
+GUM_TUI=""
+for _gum_candidate in /usr/bin/gum /bin/gum "$HOME/.local/bin/gum" gum; do
+  if [[ "$_gum_candidate" == gum ]]; then _gum_candidate=$(command -v gum 2>/dev/null || true); fi
+  [[ -n "$_gum_candidate" && -x "$_gum_candidate" ]] || continue
+  if "$_gum_candidate" --help 2>/dev/null | grep -Eq "(^|[[:space:]])(choose|filter)[[:space:]]"; then
+    GUM_TUI="$_gum_candidate"; break
+  fi
+done
+HAS_GUM=0; [[ -n "$GUM_TUI" ]] && HAS_GUM=1
 HAS_GH=0;  command -v gh  >/dev/null 2>&1 && HAS_GH=1
 HAS_JQ=0;  command -v jq  >/dev/null 2>&1 && HAS_JQ=1
 IS_TTY_IN=0;  [[ -t 0 ]] && IS_TTY_IN=1
@@ -96,7 +105,7 @@ confirm() {
   [[ "${XI_YES:-0}" == 1 ]] && return 0
   (( IS_TTY_IN )) || fail 'Confirmation required (use --yes)'
   if (( HAS_GUM )); then
-    gum confirm "$1"
+    "$GUM_TUI" confirm "$1"
   else
     local ans
     read -r -p "$1 [y/N] " ans
@@ -252,7 +261,7 @@ release_install() {
 
   if [[ "$selection" == *$'\n'* ]]; then
     if (( HAS_GUM && IS_TTY_IN )); then
-      choice=$(printf '%s\n' "$selection" | cut -f1 | gum choose --header 'Select release asset')
+      choice=$(printf '%s\n' "$selection" | cut -f1 | "$GUM_TUI" choose --header 'Select release asset')
     elif (( IS_TTY_IN )); then
       select choice in $(printf '%s\n' "$selection" | cut -f1); do [[ -n "$choice" ]] && break; done
     else
@@ -325,7 +334,7 @@ git_snippets() {
   if [[ "${1:-}" == run ]]; then
     (( IS_TTY_IN )) || fail 'Interactive terminal required'
     if (( HAS_GUM )); then
-      selected=$(printf '%s\n' "$entries" | gum choose --header 'Git snippets')
+      selected=$(printf '%s\n' "$entries" | "$GUM_TUI" choose --header 'Git snippets')
     else
       printf '%s\n' "$entries"
       read -r -p 'Enter snippet name: ' selected
@@ -509,7 +518,7 @@ xi_gh_dispatch() {
   if (( IS_TTY_IN )); then
     say "Workflow inputs: enter key=value, one per line. Leave blank to continue."
     while true; do
-      if (( HAS_GUM && IS_TTY_OUT )); then input=$(gum input --placeholder "input=value (Enter when done)") || return 1
+      if (( HAS_GUM && IS_TTY_OUT )); then input=$("$GUM_TUI" input --placeholder "input=value (Enter when done)") || return 1
       else read -r -p "Input key=value (blank to finish): " input || return 1; fi
       [[ -n "$input" ]] || break
       [[ "$input" == *=* && "${input%%=*}" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]] || { say "Invalid input name; expected key=value"; continue; }
@@ -563,7 +572,7 @@ xi_gh() {
 # ==============================================================================
 xi_gum_supports() {
   (( HAS_GUM )) || return 1
-  gum --help 2>/dev/null | grep -Eq "(^|[[:space:]])$1([[:space:]]|$)"
+  "$GUM_TUI" --help 2>/dev/null | grep -Eq "(^|[[:space:]])$1([[:space:]]|$)"
 }
 xi_select_stream() {
   local prompt="$1" selected line index=1
@@ -571,9 +580,9 @@ xi_select_stream() {
   while IFS= read -r line; do options+=("$line"); done
   ((${#options[@]})) || return 1
   if (( IS_TTY_IN && IS_TTY_OUT )) && xi_gum_supports filter; then
-    printf "%s\n" "${options[@]}" | gum filter --placeholder "$prompt"
+    printf "%s\n" "${options[@]}" | "$GUM_TUI" filter --placeholder "$prompt"
   elif (( IS_TTY_IN && IS_TTY_OUT )) && xi_gum_supports choose; then
-    printf "%s\n" "${options[@]}" | gum choose --header "$prompt"
+    printf "%s\n" "${options[@]}" | "$GUM_TUI" choose --header "$prompt"
   elif (( IS_TTY_IN )); then
     printf "%s\n" "$prompt" >&2
     for line in "${options[@]}"; do printf "%d) %s\n" "$index" "$line" >&2; index=$((index+1)); done
@@ -601,7 +610,7 @@ xi_menu() {
   local choice repo version
   while true; do
     if (( HAS_GUM && IS_TTY_OUT )); then
-      gum style --border rounded --padding "1 3" "⚡ xi · Universal Installer" "GitHub · Releases · Zinit · Updates"
+      "$GUM_TUI" style --border rounded --padding "1 3" "⚡ xi · Universal Installer" "GitHub · Releases · Zinit · Updates"
     else
       printf "\n╭── xi · Universal Installer ──╮\n╰──────────────────────────────╯\n"
     fi
