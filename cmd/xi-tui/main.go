@@ -189,7 +189,7 @@ func (m model) Update(msg tea.Msg)(tea.Model,tea.Cmd) {
   return m,waitChunk(v.chunks)
  case logChunk:
   if v.request!=m.request||m.page!=3||v.id!=m.logJobID {break}
-  if v.text!="" {m.detail+=v.text}
+  if v.text!="" {m.detail+=v.text;if len(m.detail)>2<<20 {m.detail="… older output omitted to keep memory bounded …\n"+m.detail[len(m.detail)-(2<<20):]}}
   if v.done {m.logCancel=nil;m.busy=false;m.refreshing=false;if v.err!=nil {m.message=v.err.Error()} else {writeCache(fmt.Sprintf("joblogs:%s:%d",m.repo,m.logJobID),m.detail)}} else {return m,waitChunk(m.logChannel)}
  case detail:
   if v.request!=m.request||m.page!=1||v.target!=m.detailID||v.logs!=m.detailLogs {break}
