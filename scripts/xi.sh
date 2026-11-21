@@ -453,43 +453,64 @@ xi_gh_checks() {
   gh run list -R "$repo" --limit 10
 }
 
+xi_gh_pick_run() {
+  local repo="$1" selected
+  selected=$(gh run list -R "$repo" --limit 25 --json databaseId,status,conclusion,workflowName,headBranch --jq '.[] | "\(.databaseId)  [\(.conclusion // .status)]  \(.workflowName)  (\(.headBranch))"' | xi_select_stream "Choose a run") || return 1
+  selected="${selected%% *}"
+  [[ "$selected" =~ ^[0-9]+$ ]] || return 1
+  printf "%s\n" "$selected"
+}
+xi_gh_panel() {
+  local title="$1" command="$2" output="$3" cols=80
+  cols=$(tput cols 2>/dev/null || printf 80)
+  [[ "$cols" =~ ^[0-9]+$ ]] || cols=80
+  (( cols > 78 )) && cols=78
+  (( cols < 36 )) && cols=36
+  if (( HAS_GUM && IS_TTY_OUT )) && xi_gum_supports style; then
+    "$GUM_TUI" style --border rounded --padding "1 2" --width "$((cols-2))" "⚡ $title" "❯ $command" "────────────────" "$output"
+  else printf "\n╭─ %s\n│ $ %s\n├────────────────\n%s\n╰────────────────\n" "$title" "$command" "$output"; fi
+}
+xi_gh_view_run() {
+  local repo="$1" id="$2" choice output
+  while true; do
+    output=$(gh run view "$id" -R "$repo" 2>&1) || true
+    xi_gh_panel "Run #$id" "gh run view $id -R $repo" "$output"
+    (( IS_TTY_IN )) || return 0
+    choice=$(xi_choice "Jobs and steps" "Full logs" "Failed logs" "Watch" "Back") || return 0
+    case "$choice" in
+      "Jobs and steps") output=$(gh run view "$id" -R "$repo" --json jobs --jq '.jobs[] | "\(.conclusion // .status) \(.name)"' 2>&1) || true; xi_gh_panel "Jobs #$id" "gh run view $id --json jobs" "$output" ;;
+      "Full logs") xi_gh_pager "$repo" "$id" --log ;;
+      "Failed logs") xi_gh_pager "$repo" "$id" --log-failed ;;
+      Watch) gh run watch "$id" -R "$repo" --exit-status || true ;;
+      Back) return 0 ;;
+    esac
+  done
+}
+xi_gh_pager() {
+  local repo="$1" id="$2" mode="$3" file
+  file=$(mktemp) || return 1
+  gh run view "$id" -R "$repo" "$mode" > "$file" 2>&1 || true
+  if [[ -t 0 ]] && command -v less >/dev/null 2>&1; then less -R "$file" </dev/tty || true; else cat "$file"; fi
+  rm -f "$file"
+}
 xi_gh_runs() {
-  need gh
-  local repo
+  need gh; local repo id
   repo=$(xi_gh_repo "${1:-}")
-  gh run list -R "$repo" --limit 20
+  if (( ! IS_TTY_IN )); then gh run list -R "$repo" --limit 20 --json databaseId,status,conclusion,workflowName,headBranch --jq '.[] | "\(.databaseId) [\(.conclusion // .status)] \(.workflowName) \(.headBranch)"'; return; fi
+  while true; do id=$(xi_gh_pick_run "$repo") || return 0; xi_gh_view_run "$repo" "$id"; done
 }
-
 xi_gh_watch() {
-  need gh
-  local repo runid
-  repo=$(xi_gh_repo "${1:-}")
-  runid="${2:-}"
-  if [[ -z "$runid" ]]; then
-    runid=$(gh run list -R "$repo" --limit 10 --json databaseId,displayTitle,status --jq '.[] | [.databaseId,.status,.displayTitle] | @tsv' | {
-      xi_select_stream "Select run"
-    }) || return 1
-    runid="${runid%%$'\t'*}"
-  fi
-  [[ "$runid" =~ ^[0-9]+$ ]] || fail "Invalid run ID"
-  gh run watch "$runid" -R "$repo" --exit-status
+  need gh; local repo id; repo=$(xi_gh_repo "${1:-}"); id="${2:-}"
+  [[ -n "$id" ]] || id=$(xi_gh_pick_run "$repo") || return 1
+  [[ "$id" =~ ^[0-9]+$ ]] || fail "Invalid run ID"
+  gh run watch "$id" -R "$repo" --exit-status
 }
-
 xi_gh_logs() {
-  need gh
-  local repo runid
-  repo=$(xi_gh_repo "${1:-}")
-  runid="${2:-}"
-  if [[ -z "$runid" ]]; then
-    runid=$(gh run list -R "$repo" --limit 20 --json databaseId,status,conclusion,displayTitle --jq '.[] | [.databaseId,.status,.conclusion,.displayTitle] | @tsv' | {
-      xi_select_stream "Choose run for logs"
-    }) || return 1
-    runid="${runid%%$'\t'*}"
-  fi
-  [[ "$runid" =~ ^[0-9]+$ ]] || fail "Invalid run ID"
-  gh run view "$runid" -R "$repo" --log-failed
+  need gh; local repo id; repo=$(xi_gh_repo "${1:-}"); id="${2:-}"
+  [[ -n "$id" ]] || id=$(xi_gh_pick_run "$repo") || return 1
+  [[ "$id" =~ ^[0-9]+$ ]] || fail "Invalid run ID"
+  xi_gh_pager "$repo" "$id" --log-failed
 }
-
 xi_gh_pick_ref() {
   local repo="$1" ref
   if (( HAS_GUM && IS_TTY_IN )); then
@@ -580,7 +601,7 @@ xi_select_stream() {
   while IFS= read -r line; do options+=("$line"); done
   ((${#options[@]})) || return 1
   if (( IS_TTY_IN && IS_TTY_OUT )) && xi_gum_supports filter; then
-    printf "%s\n" "${options[@]}" | "$GUM_TUI" filter --placeholder "$prompt"
+    printf "%s\n" "${options[@]}" | "$GUM_TUI" filter --placeholder "$prompt" --height 12
   elif (( IS_TTY_IN && IS_TTY_OUT )) && xi_gum_supports choose; then
     printf "%s\n" "${options[@]}" | "$GUM_TUI" choose --header "$prompt"
   elif (( IS_TTY_IN )); then
