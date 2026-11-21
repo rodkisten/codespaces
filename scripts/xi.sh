@@ -72,7 +72,7 @@ release_install() {
 }
 main() {
  local action="${1:-help}" repo='' dir='' cmd=bash releases=0 version='' asset=''
- [[ "$action" == --yes ]] && { XI_YES=1; shift; action="${1:-help}"; }
+ if [[ "$action" == --yes ]]; then XI_YES=1; shift; action="${1:-help}"; fi
  [[ $# -gt 0 ]] && shift || :
  case "$action" in
   help|-h|--help) usage ;;
@@ -87,7 +87,7 @@ main() {
   releases)
     repo="${1:?Missing repository}"; shift
     while (($#)); do case "$1" in -v|--version) version="${2:?}"; shift;; --asset) asset="${2:?}"; shift;; *) fail "Unknown option: $1";; esac; shift; done
-    XI_ASSET="$asset" XI_ARCH="$(uname -m)" release_install "$repo" "$version" "$asset" ;;
+    XI_ASSET="$asset" XI_ARCH="$(uname -m | sed s/x86_64/amd64/)" release_install "$repo" "$version" "$asset" ;;
   zinit) need zsh; [[ "$(config_get XI_ZSH_PKG)" == zinit ]] || fail 'Set xi config --zsh-pkg zinit'; repo_check "${1:?}"; confirm "Install Zinit plugin $1?" && zsh -ic "zinit light '$1'" && record zinit "$1" ;;
   zshrc)
     [[ "${1:-}" == add && $# -eq 2 ]] || fail 'Usage: xi zshrc add "line"'
