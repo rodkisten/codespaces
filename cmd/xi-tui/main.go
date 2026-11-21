@@ -78,6 +78,8 @@ type model struct {
  jobs []job
  jobSelected int
  stepSelected int
+ stepFocus bool
+ logFilter string
  logJobID int64
  logChannel <-chan logChunk
 }
@@ -144,7 +146,7 @@ func (m model) Init() tea.Cmd {
 }
 func (m model) openJobs()(tea.Model,tea.Cmd) {
  if len(m.runs)==0{return m,nil}
- m.page=2;m.request++;m.busy=true;m.refreshing=false;m.message="";m.jobSelected=0;m.stepSelected=0
+ m.page=2;m.request++;m.busy=true;m.refreshing=false;m.message="";m.jobSelected=0;m.stepSelected=0;m.stepFocus=false
  var jobs []job
  if ok,_:=readCache(fmt.Sprintf("jobs:%s:%d",m.repo,m.detailID),&jobs,2*time.Minute);ok {m.jobs=jobs;m.busy=false;m.refreshing=true}
  return m,fetchJobs(m.repo,m.detailID,m.request)
@@ -194,9 +196,11 @@ func (m model) Update(msg tea.Msg)(tea.Model,tea.Cmd) {
    if m.page==3 {m.detail="";m.busy=true;m.refreshing=false;return m,streamJobLogs(m.repo,m.logJobID,m.detailID,m.request)}
    return m,fetchDetail(m.repo,m.detailID,m.detailLogs,m.request)
   case "up","k":
-   if m.page==0&&m.selected>0 {m.selected--} else if m.page==2&&m.jobSelected>0 {m.jobSelected--} else if (m.page==1||m.page==3)&&m.scroll>0 {m.scroll--}
+   if m.page==0&&m.selected>0 {m.selected--} else if m.page==2&&m.stepFocus&&len(m.jobs)>0&&m.stepSelected>0 {m.stepSelected--} else if m.page==2&&m.jobSelected>0 {m.jobSelected--;m.stepSelected=0} else if (m.page==1||m.page==3)&&m.scroll>0 {m.scroll--}
   case "down","j":
-   if m.page==0&&m.selected<len(m.runs)-1 {m.selected++} else if m.page==2&&m.jobSelected<len(m.jobs)-1 {m.jobSelected++} else if m.page==1||m.page==3 {m.scroll++}
+   if m.page==0&&m.selected<len(m.runs)-1 {m.selected++} else if m.page==2&&m.stepFocus&&len(m.jobs)>0&&m.stepSelected<len(m.jobs[m.jobSelected].Steps)-1 {m.stepSelected++} else if m.page==2&&!m.stepFocus&&m.jobSelected<len(m.jobs)-1 {m.jobSelected++;m.stepSelected=0} else if m.page==1||m.page==3 {m.scroll++}
+  case "f":if m.page==3 {if m.logFilter=="" {m.logFilter="error"} else {m.logFilter=""};m.scroll=0}
+  case "tab":if m.page==2&&len(m.jobs)>0&&len(m.jobs[m.jobSelected].Steps)>0 {m.stepFocus=!m.stepFocus}
   case "enter","right":
    if m.page==0 {return m.openDetail(false)}
    if m.page==1 {return m.openJobs()}
@@ -207,8 +211,8 @@ func (m model) Update(msg tea.Msg)(tea.Model,tea.Cmd) {
   case "l":if m.page==1&&!m.detailLogs {return m.openDetail(true)}
   case "J":if m.page==1 {return m.openJobs()}
   case "d":if m.page==1&&m.detailLogs {return m.openDetail(false)}
-  case "home","g":if m.page==1 {m.scroll=0}
-  case "end","G":if m.page==1 {m.scroll=len(strings.Split(m.detail,"\n"))}
+  case "home","g":if m.page==1||m.page==3 {m.scroll=0}
+  case "end","G":if m.page==1||m.page==3 {m.scroll=len(strings.Split(m.detail,"\n"))}
   }
  }
  return m,nil
@@ -243,11 +247,17 @@ func (m model) View() tea.View {
   max:=m.height-12;if max<3 {max=3};start:=0;if m.jobSelected>=max {start=m.jobSelected-max+1}
   for i:=start;i<len(m.jobs)&&i<start+max;i++ {j:=m.jobs[i];prefix:="  ";if i==m.jobSelected {prefix="❯ "};body.WriteString(fmt.Sprintf("%s%s  %s  (%d steps)\n",prefix,j.Conclusion,j.Name,len(j.Steps)))}
   if len(m.jobs)==0&&!m.busy {body.WriteString("No jobs available.\n")}
-  if len(m.jobs)>0 {for _,s:=range m.jobs[m.jobSelected].Steps {body.WriteString(muted.Render(fmt.Sprintf("  %d · %s · %s",s.Number,s.Name,s.Conclusion))+"\n")}}
+  if len(m.jobs)>0 {
+   body.WriteString(muted.Render("Tab switches focus between jobs and steps")+"\n")
+   steps:=m.jobs[m.jobSelected].Steps
+   room:=m.height-14-max;if room<2 {room=2};startStep:=0;if m.stepSelected>=room {startStep=m.stepSelected-room+1}
+   for i:=startStep;i<len(steps)&&i<startStep+room;i++ {s:=steps[i];prefix:="  ";if m.stepFocus&&i==m.stepSelected {prefix="❯ "};line:=fmt.Sprintf("%s%d · %s · %s",prefix,s.Number,s.Name,s.Conclusion);if m.stepFocus&&i==m.stepSelected {body.WriteString(purple.Render(line)+"\n")} else {body.WriteString(muted.Render(line)+"\n")}}
+  }
  } else {
   body.WriteString(purple.Render("RUN DETAILS / COMMAND OUTPUT")+"\n")
-  if m.page==3 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d --job %d --log",m.detailID,m.logJobID))+"\n\n")} else if len(m.runs)>0 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d -R %s",m.runs[m.selected].ID,m.repo))+"\n\n")}
+  if m.page==3 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d --job %d --log",m.detailID,m.logJobID))+"\n");if m.logFilter!="" {body.WriteString(purple.Render("FILTER: "+m.logFilter)+"\n")} else {body.WriteString("\n")}} else if len(m.runs)>0 {body.WriteString(muted.Render(fmt.Sprintf("❯ gh run view %d -R %s",m.runs[m.selected].ID,m.repo))+"\n\n")}
   lines:=strings.Split(m.detail,"\n")
+  if m.page==3&&m.logFilter!="" {filtered:=make([]string,0,len(lines)/4);for _,line:=range lines {if strings.Contains(line,m.logFilter) {filtered=append(filtered,line)}};lines=filtered}
   max:=m.height-13;if max<3 {max=3}
   maxScroll:=len(lines)-max;if maxScroll<0 {maxScroll=0}
   if m.scroll>maxScroll {m.scroll=maxScroll};if m.scroll<0 {m.scroll=0}
@@ -255,7 +265,7 @@ func (m model) View() tea.View {
   if len(lines)>max {lines=lines[:max]}
   for _,line:=range lines {body.WriteString(line+"\n")}
  }
- body.WriteString("\n"+muted.Render("← Esc Back  ↑↓ Scroll  Enter Open  J Jobs  L Logs  D Details  R Refresh  Q Quit"))
+ body.WriteString("\n"+muted.Render("← Esc Back  ↑↓ Scroll  Enter Open  Tab Steps  F Errors  L Logs  D Details  R Refresh  Q Quit"))
  v:=tea.NewView(border.Width(w).Render(body.String()))
  v.AltScreen=true
  return v
