@@ -10,9 +10,9 @@ set -Eeuo pipefail
 # ==============================================================================
 PHASE="${1:-start}"
 case "$PHASE" in
-  create|start|attach) ;;
+  create|start|attach|--install-theme-only) ;;
   *)
-    printf '\033[31m[erro]\033[0m Uso: bootstrap.sh {create|start|attach}\n' >&2
+    printf '\033[31m[erro]\033[0m Uso: bootstrap.sh {create|start|attach|--install-theme-only}\n' >&2
     exit 2
     ;;
 esac
@@ -88,6 +88,31 @@ trap on_exit EXIT
 # ==============================================================================
 # 4. ETAPAS DO CICLO DE VIDA (MODULARES)
 # ==============================================================================
+
+# Theme-only mode: never installs packages, plugins, services, or changes PATH.
+install_theme_only() {
+  local source_theme="$REPO_DIR/config/zsh/rod-prompt-neon.zsh"
+  local source_config="$REPO_DIR/config/zsh/rod-prompt-neon.config.zsh"
+  local config_dir="$HOME/.config/zsh"
+  local rc="$HOME/.zshrc"
+  local line='[[ -r "$HOME/.config/zsh/rod-prompt.zsh" ]] && source "$HOME/.config/zsh/rod-prompt.zsh"'
+  [[ -f "$source_theme" ]] || { log_warn "Theme missing: $source_theme"; return 1; }
+  command -v zsh >/dev/null || { log_warn "zsh is required"; return 1; }
+  zsh -n "$source_theme" || return 1
+  mkdir -p "$config_dir"
+  install -m 0644 "$source_theme" "$config_dir/rod-prompt.zsh"
+  if [[ -f "$source_config" && ! -e "$config_dir/rod-prompt-neon.config.zsh" ]]; then
+    install -m 0644 "$source_config" "$config_dir/rod-prompt-neon.config.zsh"
+  fi
+  [[ -e "$rc" || -L "$rc" ]] || touch "$rc"
+  if ! grep -Fqx "$line" "$rc"; then
+    [[ ! -L "$rc" ]] || { log_warn "Refusing to edit symlinked .zshrc"; return 1; }
+    cp -p "$rc" "$rc.backup-$(date -u +%Y%m%dT%H%M%SZ)"
+    printf '\\n# Rod Prompt Neon (theme only)\\n%s\\n' "$line" >> "$rc"
+  fi
+  zsh -n "$rc" || return 1
+  log_ok "Theme installed. Run: exec zsh"
+}
 
 # Etapa 1: Vincula o ~/.zshrc ao repositório fazendo backup de segurança
 setup_zshrc() {
@@ -212,6 +237,9 @@ main() {
       install_xi
       build_rodlog
       run_health_check
+      ;;
+    --install-theme-only)
+      install_theme_only
       ;;
     attach)
       log_info "Fase 'attach' não requer reconfiguração de sistema."
