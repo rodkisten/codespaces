@@ -23,6 +23,9 @@ import (
 // @TODO: EXTRACT TO `internal/domain/github.go` (Domain Models & Messages)
 // ============================================================================
 
+// Em Go, structs substituem classes/interfaces de dados do TS.
+// As struct tags (`json:"..."`) funcionam como metadados de runtime para o encoding/json
+// mapear camelCase do JSON para PascalCase (campos exportados/públicos em Go começam com letra MAIÚSCULA).
 type run struct {
 	ID         int64  `json:"databaseId"`
 	Name       string `json:"workflowName"`
@@ -46,6 +49,8 @@ type step struct {
 	Number     int    `json:"number"`
 }
 
+// Em arquitetura Elm/Redux (usada pelo Bubble Tea), não existem callbacks diretos nem `await` na UI.
+// Todo evento assíncrono retorna uma struct de "Mensagem" (equivalente a uma Redux Action `{ type, payload }`).
 type loaded struct {
 	runs    []run
 	err     error
@@ -69,6 +74,8 @@ type logChunk struct {
 	id      int64
 }
 type logReady struct {
+	// `<-chan logChunk` é um canal (channel) SOMENTE LEITURA.
+	// Pense nele como uma fila tipada thread-safe ou um AsyncIterable<logChunk> do JS.
 	chunks  <-chan logChunk
 	request int
 }
@@ -86,11 +93,15 @@ type detail struct {
 // ============================================================================
 
 type cacheEntry struct {
-	Saved   time.Time       `json:"saved"`
+	Saved time.Time `json:"saved"`
+	// `json.RawMessage` é equivalente a guardar o JSON ainda como Buffer/string sem parsear,
+	// permitindo adiar o `JSON.parse` até sabermos o tipo exato do destino (`dest`).
 	Payload json.RawMessage `json:"payload"`
 }
 
-// Resolve OS cache dir once at startup instead of querying syscalls/env vars on every read/write.
+// Em Node, módulos são avaliados no top-level no import.
+// Em Go, variáveis globais com funções anônimas auto-executáveis (`func() string { ... }()`)
+// rodam uma única vez na inicialização do binário antes do `main()`.
 var baseCacheDir = func() string {
 	base, err := os.UserCacheDir()
 	if err != nil {
@@ -99,7 +110,9 @@ var baseCacheDir = func() string {
 	return filepath.Join(base, "xi", "github")
 }()
 
-// Pool 8KB byte slices for log streaming to eliminate repeated heap allocations.
+// `sync.Pool` é um pool de objetos reutilizáveis thread-safe.
+// Em Node, você alocaria `Buffer.alloc(8192)` toda vez e deixaria o V8 limpar depois.
+// Em Go, reaproveitamos os mesmos slices de 8KB entre streams para aliviar o Garbage Collector.
 var streamBufPool = sync.Pool{
 	New: func() any {
 		b := make([]byte, 8192)
@@ -108,12 +121,15 @@ var streamBufPool = sync.Pool{
 }
 
 func cachePath(key string) string {
+	// `sha256.Sum256` retorna um array de tamanho fixo `[32]byte` na STACK (zero alocação na heap!).
 	sum := sha256.Sum256([]byte(key))
-	var hexBuf [24]byte // 12 bytes = 24 hex chars, stack-allocated
+	var hexBuf [24]byte // 12 bytes em hexadecimal ocupam exatamente 24 caracteres ASCII.
 	hex.Encode(hexBuf[:], sum[:12])
 	return filepath.Join(baseCacheDir, string(hexBuf[:])+".json")
 }
 
+// `dest any` (`any` é alias para `interface{}`) funciona como `unknown` no TypeScript,
+// mas aqui `dest` precisa ser um PONTEIRO (`&runs`) para que `json.Unmarshal` consiga mutar a variável original.
 func readCache(key string, dest any, ttl time.Duration) (bool, bool) {
 	if ok, stale := hotCache.get(key, dest, ttl); ok {
 		return true, stale
@@ -130,6 +146,8 @@ func readCache(key string, dest any, ttl time.Duration) (bool, bool) {
 	return true, time.Since(entry.Saved) > ttl
 }
 
+// Escrita atômica em disco: escreve em um arquivo temporário e depois faz `os.Rename`.
+// Isso evita que outra leitura pegue um arquivo JSON cortado pela metade caso o processo morra no meio.
 func writeCache(key string, value any) {
 	hotCache.put(key, value)
 	payload, err := json.Marshal(value)
@@ -140,7 +158,6 @@ func writeCache(key string, value any) {
 	if err != nil {
 		return
 	}
-	path := cachePath(key)
 	if os.MkdirAll(baseCacheDir, 0700) != nil {
 		return
 	}
@@ -149,6 +166,8 @@ func writeCache(key string, value any) {
 		return
 	}
 	tmpName := tmp.Name()
+	// `defer` agenda uma função para rodar obrigatoriamente quando a função atual retornar
+	// (similar a um bloco `finally` do JS, mas atrelado ao escopo da função inteira).
 	defer os.Remove(tmpName)
 
 	if tmp.Chmod(0600) != nil {
@@ -162,7 +181,7 @@ func writeCache(key string, value any) {
 	if tmp.Close() != nil {
 		return
 	}
-	_ = os.Rename(tmpName, path)
+	_ = os.Rename(tmpName, cachePath(key))
 }
 
 func cachedRuns(repo string) ([]run, bool, bool) {
@@ -186,12 +205,15 @@ func cachedDetail(repo string, id int64, logs bool) (string, bool, bool) {
 // @TODO: EXTRACT TO `internal/github/cli_client.go` (Process Execution & Streaming)
 // ============================================================================
 
+// `gh` é síncrono (bloqueante), mas em Go isso NÃO trava a aplicação porque cada `tea.Cmd`
+// é executado pelo runtime do Bubble Tea dentro de sua própria Goroutine (thread leve gerenciada pelo Go).
 func gh(args ...string) ([]byte, error) {
+	// `context.WithTimeout` é o equivalente exato ao `AbortSignal.timeout(18000)` do Node.js.
 	ctx, cancel := context.WithTimeout(context.Background(), 18*time.Second)
-	defer cancel()
+	defer cancel() // Libera o timer interno assim que a função terminar, evitando memory leak.
 
 	cmd := exec.CommandContext(ctx, "gh", args...)
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.CombinedOutput() // Equivale a `execFileSync` capturando stdout + stderr num Buffer (`[]byte`).
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("GitHub request timed out after 18s; cached data remains available")
 	}
@@ -201,6 +223,8 @@ func gh(args ...string) ([]byte, error) {
 	return out, nil
 }
 
+// Um `tea.Cmd` é simplesmente um tipo alias para `func() tea.Msg` (uma thunk function).
+// O Bubble Tea executa essa função em background (goroutine) e injeta o `tea.Msg` retornado no `Update()`.
 func fetchRuns(repo string, request int) tea.Cmd {
 	return func() tea.Msg {
 		out, err := gh("run", "list", "-R", repo, "--limit", "30", "--json", "databaseId,workflowName,headBranch,status,conclusion")
@@ -208,6 +232,7 @@ func fetchRuns(repo string, request int) tea.Cmd {
 			return loaded{err: err, request: request}
 		}
 		var runs []run
+		// `json.Unmarshal` preenche o slice `runs` por referência (`&runs`).
 		if err = json.Unmarshal(out, &runs); err != nil {
 			return loaded{err: err, request: request}
 		}
@@ -223,6 +248,7 @@ func fetchJobs(repo string, id int64, request int) tea.Cmd {
 		if err != nil {
 			return jobResponse{err: err, request: request, id: id}
 		}
+		// Struct anônima inline: útil para desembrulhar wrappers JSON pontuais sem poluir o pacote.
 		var payload struct {
 			Jobs []job `json:"jobs"`
 		}
@@ -252,8 +278,11 @@ func fetchDetail(repo string, id int64, logs bool, request int) tea.Cmd {
 	}
 }
 
+// Como o Bubble Tea espera 1 mensagem por `tea.Cmd`, para fazer streaming contínuo usamos um padrão
+// de "recursão assíncrona": `waitChunk` lê 1 item do channel -> entrega ao `Update()` -> `Update()` chama `waitChunk` de novo.
 func waitChunk(ch <-chan logChunk) tea.Cmd {
 	return func() tea.Msg {
+		// `v, ok := <-ch` bloqueia esta goroutine até chegar um chunk ou o channel ser fechado (`ok == false`).
 		v, ok := <-ch
 		if !ok {
 			return logChunk{done: true}
@@ -262,10 +291,15 @@ func waitChunk(ch <-chan logChunk) tea.Cmd {
 	}
 }
 
+// Aqui temos um padrão produtor-consumidor clássico de Go:
+// 1. Cria um channel bufferizado (`make(chan logChunk, 32)`).
+// 2. Dispara uma goroutine (`go func()`) que lê o `stdout` do processo `gh` em streaming e empurra pedaços no channel.
+// 3. Retorna imediatamente a referência do channel (`logReady`) para a UI começar a consumir.
 func streamJobLogs(ctx context.Context, repo string, jobID, runID int64, request int) tea.Cmd {
 	return func() tea.Msg {
 		ch := make(chan logChunk, 32)
 		go func() {
+			// Quando essa goroutine sair (por erro, cancelamento ou fim do log), fecha o channel.
 			defer close(ch)
 			ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 			defer cancel()
@@ -278,6 +312,7 @@ func streamJobLogs(ctx context.Context, repo string, jobID, runID int64, request
 				"--job", strconv.FormatInt(jobID, 10),
 				"--log",
 			)
+			// `StdoutPipe` funciona como `child_process.spawn().stdout` (um `io.ReadCloser` / stream).
 			pipe, err := cmd.StdoutPipe()
 			if err != nil {
 				ch <- logChunk{err: err, done: true, request: request, id: jobID}
@@ -289,6 +324,7 @@ func streamJobLogs(ctx context.Context, repo string, jobID, runID int64, request
 				return
 			}
 
+			// Pega um buffer de 8KB do pool e garante sua devolução ao final da goroutine.
 			bufPtr := streamBufPool.Get().(*[]byte)
 			defer streamBufPool.Put(bufPtr)
 			buf := *bufPtr
@@ -296,6 +332,8 @@ func streamJobLogs(ctx context.Context, repo string, jobID, runID int64, request
 			for {
 				n, e := pipe.Read(buf)
 				if n > 0 {
+					// `select` em Go funciona como `Promise.race` entre operações de canais:
+					// tenta enviar o chunk para `ch`, mas se o usuário apertou Esc (`ctx.Done()`), aborta na hora sem travar!
 					select {
 					case ch <- logChunk{text: string(buf[:n]), request: request, id: jobID}:
 					case <-ctx.Done():
@@ -304,7 +342,7 @@ func streamJobLogs(ctx context.Context, repo string, jobID, runID int64, request
 					}
 				}
 				if e != nil {
-					break
+					break // `io.EOF` ou erro de leitura encerra o loop.
 				}
 			}
 			err = cmd.Wait()
@@ -342,10 +380,11 @@ const (
 	pageJobs   = 2
 	pageLogs   = 3
 
-	maxLogBytes = 2 << 20 // 2 MB cap
+	maxLogBytes = 2 << 20 // Bitwise shift: 2 * 2^20 = 2MB.
 	omitBanner  = "… older output omitted to keep memory bounded …\n"
 )
 
+// `model` é o estado único e central da aplicação (Single Source of Truth, igual ao `state` do React/Redux).
 type model struct {
 	repo         string
 	runs         []run
@@ -354,11 +393,11 @@ type model struct {
 	busy         bool
 	message      string
 	detail       string
-	detailLines  []string // Pre-split lines to avoid strings.Split(2MB) on every 110ms frame
+	detailLines  []string // Cache das linhas já quebradas por `\n` para o View() não refazer `split` a cada frame.
 	width        int
 	height       int
 	frame        int
-	request      int
+	request      int // Contador monotônico para invalidar respostas de requests antigos (evita race conditions).
 	refreshing   bool
 	fromCache    bool
 	updated      time.Time
@@ -373,18 +412,21 @@ type model struct {
 	logFilter    string
 	logJobID     int64
 	logChannel   <-chan logChunk
-	logCancel    context.CancelFunc
+	logCancel    context.CancelFunc // Equivalente ao `abortController.abort()` para matar o streaming de log.
 	logStep      string
 	searchMode   bool
 	searchQuery  string
 }
 
 func spinner() tea.Cmd {
+	// Agenda um timer único de 110ms (como `setTimeout`), que dispara `tickMsg` no `Update()`.
 	return tea.Tick(110*time.Millisecond, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
 func initial(repo string) model {
 	m := model{repo: repo, width: 80, height: 24, request: 1}
+	// Padrão Stale-While-Revalidate: se houver cache, já preenche o estado inicial para renderizar no frame 0,
+	// mas marca `refreshing = true` para buscar dados novos em background.
 	if runs, ok, _ := cachedRuns(repo); ok {
 		m.runs = runs
 		m.fromCache = true
@@ -395,6 +437,9 @@ func initial(repo string) model {
 	return m
 }
 
+// Note o receiver por ponteiro `(m *model)` aqui:
+// Em Go, tudo é passado por VALOR (cópia). Como queremos mutar `m.detail` e `m.detailLines` in-place,
+// usamos `*model` (ponteiro).
 func (m *model) setDetail(val string) {
 	m.detail = val
 	if val == "" {
@@ -407,18 +452,21 @@ func (m *model) setDetail(val string) {
 func (m *model) appendDetail(chunk string) {
 	m.detail += chunk
 	if len(m.detail) > maxLogBytes {
+		// Mantém apenas os últimos 2MB de log na memória (sliding window).
 		m.detail = omitBanner + m.detail[len(m.detail)-maxLogBytes:]
 	}
 	m.detailLines = strings.Split(m.detail, "\n")
 }
 
+// `Init` é o lifecycle hook inicial do Bubble Tea (como `useEffect(..., [])` no React).
+// `tea.Batch` dispara múltiplos comandos em paralelo (como `Promise.all`, mas cada um entrega sua msg quando acabar).
 func (m model) Init() tea.Cmd {
 	return tea.Batch(fetchRuns(m.repo, m.request), spinner())
 }
 
 func (m model) stopLog() model {
 	if m.logCancel != nil {
-		m.logCancel()
+		m.logCancel() // Cancela o `context` da goroutine de streaming, matando o processo `gh` filho imediatamente.
 		m.logCancel = nil
 	}
 	m.logChannel = nil
@@ -480,20 +528,25 @@ func (m model) openDetail(logs bool) (tea.Model, tea.Cmd) {
 	return m, fetchDetail(m.repo, id, logs, m.request)
 }
 
+// `Update` é o reducer puro da aplicação: `(state, event) => (newState, nextAsyncCmd)`.
+// Ele roda na main loop do Bubble Tea, recebendo tanto teclas do usuário (`tea.KeyPressMsg`)
+// quanto retornos das goroutines (`loaded`, `logChunk`, etc).
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Type switch: verifica qual tipo concreto chegou dentro da interface `tea.Msg`.
 	switch v := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = v.Width
 		m.height = v.Height
 
 	case tickMsg:
-		// Only tick animation frame when actively loading/syncing to avoid idle CPU/GC wakeups
 		if m.busy || m.refreshing {
 			m.frame++
 		}
+		// Reagenda o próximo tick (loop recursivo de 110ms para animação do spinner).
 		return m, spinner()
 
 	case loaded:
+		// Guard clause: se o usuário mudou de tela ou pediu refresh antes dessa goroutine terminar, descarta!
 		if v.request != m.request || m.page != pageRuns {
 			break
 		}
@@ -530,6 +583,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			break
 		}
 		m.logChannel = v.chunks
+		// Começa a escutar o primeiro pedaço de texto vindo do channel.
 		return m, waitChunk(v.chunks)
 
 	case logChunk:
@@ -549,6 +603,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				writeCache("joblogs:"+m.repo+":"+strconv.FormatInt(m.logJobID, 10), m.detail)
 			}
 		} else {
+			// Enquanto não terminar (`!v.done`), agenda a leitura do próximo chunk do channel.
 			return m, waitChunk(m.logChannel)
 		}
 
@@ -740,8 +795,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // @TODO: EXTRACT TO `internal/tui/view.go` (Zero-Overhead Viewport Rendering)
 // ============================================================================
 
-// containsFold performs allocation-free ASCII case-insensitive substring matching,
-// falling back to strings.EqualFold for multi-byte UTF-8 runes.
+// Em Go, strings são imutáveis e indexadas por BYTES (não por caracteres UTF-16 como no JS).
+// `containsFold` faz busca case-insensitive direto nos bytes sem criar novas strings com `strings.ToLower`.
 func containsFold(s, substr string) bool {
 	if len(substr) == 0 {
 		return true
@@ -749,7 +804,7 @@ func containsFold(s, substr string) bool {
 	if len(substr) > len(s) {
 		return false
 	}
-	// Fast path for pure ASCII (99.9% of GitHub Actions logs, branches, and workflow names)
+	// Converte o primeiro byte de A-Z para a-z somando 32 ('a' - 'A') na tabela ASCII.
 	c0 := substr[0]
 	if c0 >= 'A' && c0 <= 'Z' {
 		c0 += 'a' - 'A'
@@ -767,6 +822,9 @@ func containsFold(s, substr string) bool {
 	return false
 }
 
+// `View` é o renderizador declarativo (como o `render()` do React):
+// Toda vez que `Update()` retorna um novo `model`, o Bubble Tea chama `View()` e faz o diff
+// na tela do terminal para atualizar apenas o que mudou.
 func (m model) View() tea.View {
 	w := m.width - 4
 	if w > 84 {
@@ -776,9 +834,10 @@ func (m model) View() tea.View {
 		w = 28
 	}
 
+	// `strings.Builder` é o jeito performático de concatenar strings em Go sem criar dezenas de
+	// strings intermediárias descartáveis (similar ao `Array.join('')` em JS antigo).
 	var body strings.Builder
-	// Pre-grow builder buffer to prevent geometric reallocations during frame rendering
-	body.Grow(4096)
+	body.Grow(4096) // Pré-aloca 4KB de capacidade inicial de uma só vez.
 
 	body.WriteString(stylePurple.Render("⚡ xi  /  GitHub Actions") + "\n")
 	body.WriteString(styleMuted.Render(m.repo) + "\n\n")
@@ -788,6 +847,7 @@ func (m model) View() tea.View {
 		if m.refreshing {
 			state = "Syncing"
 		}
+		// `m.frame & 3` é um truque bitwise equivalente a `m.frame % 4` (pois 4 é potência de 2).
 		body.WriteString(stylePurple.Render(spinnerFrames[m.frame&3]+" "+state+" GitHub data…") + "\n")
 	}
 	if (m.page == pageRuns && m.fromCache) || (m.page == pageDetail && m.detailCache) {
@@ -797,6 +857,8 @@ func (m model) View() tea.View {
 		body.WriteString("⚠ " + m.message + "\n")
 	}
 	if !m.updated.IsZero() && !m.refreshing && !m.busy {
+		// Curiosidade do Go: formatação de datas não usa `HH:mm:ss`, mas sim a data de referência
+		// `Mon Jan 2 15:04:05 MST 2006` (1-2-3-4-5-6-7).
 		body.WriteString(styleMuted.Render("✓ Synced "+m.updated.Format("15:04:05")) + "\n")
 	}
 
@@ -809,6 +871,7 @@ func (m model) View() tea.View {
 		if m.searchQuery != "" {
 			body.WriteString(styleMuted.Render("Search: "+m.searchQuery) + "\n")
 		}
+		// Virtualização de lista (windowing): calcula apenas a fatia visível na altura do terminal.
 		max := m.height - 11
 		if max < 3 {
 			max = 3
@@ -818,7 +881,7 @@ func (m model) View() tea.View {
 			start = m.selected - max + 1
 		}
 		shown := 0
-		var idBuf [20]byte
+		var idBuf [20]byte // Buffer na stack para formatar int64 sem alocar string na heap.
 		for i := start; i < len(m.runs) && shown < max; i++ {
 			r := m.runs[i]
 			if m.searchQuery != "" {
@@ -924,7 +987,7 @@ func (m model) View() tea.View {
 		hasLogFilter := m.page == pageLogs && (m.logFilter != "" || m.logStep != "")
 		hasSearch := m.searchQuery != ""
 
-		// Single-pass filter instead of two separate slice allocations + four strings.ToLower() calls per line
+		// Passada única de filtragem sobre as linhas pré-quebradas.
 		if hasLogFilter || hasSearch {
 			filtered := make([]string, 0, len(lines)/4)
 			for _, line := range lines {
@@ -963,6 +1026,7 @@ func (m model) View() tea.View {
 			if end > len(lines) {
 				end = len(lines)
 			}
+			// Slicing `lines[m.scroll:end]` em Go é O(1) e não copia os elementos, apenas cria um ponteiro de janela.
 			for _, line := range lines[m.scroll:end] {
 				body.WriteString(line)
 				body.WriteByte('\n')
@@ -976,15 +1040,17 @@ func (m model) View() tea.View {
 	body.WriteString("\n" + styleMuted.Render("← Esc Back  ↑↓ Scroll  Enter Open  Tab Steps  F Errors  L Logs  D Details  R Refresh  Q Quit"))
 
 	v := tea.NewView(styleBorder.Width(w).Render(body.String()))
-	v.AltScreen = true
+	v.AltScreen = true // Usa o buffer alternativo do terminal (igual ao `vim` ou `htop`), restaurando o terminal ao sair.
 	return v
 }
 
 func main() {
+	// `os.Args[0]` é o caminho do próprio executável (como `process.argv[1]` no Node).
 	repo := "rodkisten/codespaces"
 	if len(os.Args) > 1 {
 		repo = os.Args[1]
 	}
+	// Inicia o event loop bloqueante do Bubble Tea até que `tea.Quit` seja retornado por `Update()`.
 	p := tea.NewProgram(initial(repo))
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
