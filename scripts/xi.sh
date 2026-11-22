@@ -557,6 +557,26 @@ xi_gh_dispatch() {
     if confirm "Open recent runs now?"; then xi_gh_runs "$repo"; fi
   fi
 }
+xi_cli_install() {
+  need go
+  local root="${XI_SOURCE_ROOT:-}"
+  if [[ -z "$root" ]]; then
+    local candidate
+    candidate=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+    [[ -f "$candidate/cmd/xi-cli/go.mod" ]] && root="$candidate"
+  fi
+  [[ -n "$root" && -f "$root/cmd/xi-cli/go.mod" ]] || fail "CLI sources not found; set XI_SOURCE_ROOT to your codespaces checkout"
+  local target="$XI_BIN/xi" backend="$HOME/.local/share/xi/xi.sh" tmp
+  mkdir -p "$(dirname "$backend")"
+  tmp=$(mktemp "$XI_BIN/.xi-cli.XXXXXX") || return 1
+  if ! (cd "$root/cmd/xi-cli" && go build -trimpath -o "$tmp" .); then rm -f "$tmp";fail "Cobra build failed";fi
+  chmod 755 "$tmp"
+  cp "$root/scripts/xi.sh" "$backend"
+  mv -f "$tmp" "$target"
+  say "Installed Cobra xi at $target; Bash backend at $backend"
+  say 'Enable Zsh completion: mkdir -p ~/.zfunc && xi completion zsh > ~/.zfunc/_xi'
+  say 'Add ~/.zfunc to fpath before compinit in ~/.zshrc'
+}
 xi_tui_install() {
   need go
   local repo_root="${XI_SOURCE_ROOT:-}"
@@ -711,6 +731,7 @@ xi [--yes] [--debug] <command>
   xi git [run]                      Browse or execute safe Git snippets
   xi gh [menu|checks|runs|watch|logs|dispatch] [OWNER/REPO] [ARG]
   xi tui [install|run] [OWNER/REPO]  Build or open the Bubble Tea interface
+  xi cli install                      Build and install Cobra CLI
   xi menu
   xi doctor
   xi self-update
@@ -739,6 +760,7 @@ main() {
     doctor)         xi_path_doctor; say "PATH checked: $XI_BIN" ;;
     zle-init)       xi_zle_init ;;
     gh)             xi_gh "$@" ;;
+    cli)            case "${1:-}" in install) xi_cli_install ;; *) fail "Usage: xi cli install" ;; esac ;;
     tui)            case "${1:-run}" in install) xi_tui_install ;; run) xi_tui_launch "${2:-}" ;; *) fail "Usage: xi tui [install|run] [OWNER/REPO]" ;; esac ;;
     github)
       while (($#)); do
